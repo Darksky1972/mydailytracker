@@ -48,30 +48,17 @@ def default(d, key, fallback):
 # ---------------------------------------------------------------------------
 STRAIN_COLOR = "#3498db"          # azul, a petición
 TRACK_COLOR = "rgba(150,150,150,0.18)"   # arco no rellenado
+GREEN, AMBER, RED = "#2ecc71", "#f1c40f", "#e74c3c"
 
 
-def _recovery_color(v):
+def _band_color(v, good, ok, higher_better=True):
+    """Verde / ámbar / rojo según dos umbrales. `higher_better=False` invierte
+    (menos es mejor, p. ej. RHR). None → color de arco vacío."""
     if v is None:
         return TRACK_COLOR
-    return "#2ecc71" if v >= 67 else "#f1c40f" if v >= 34 else "#e74c3c"
-
-
-def _sleep_color(v):
-    if v is None:
-        return TRACK_COLOR
-    return "#2ecc71" if v >= 7.5 else "#f1c40f" if v >= 6.5 else "#e74c3c"
-
-
-def _hrv_color(v):           # más alto, mejor (rango 20–60)
-    if v is None:
-        return TRACK_COLOR
-    return "#2ecc71" if v >= 47 else "#f1c40f" if v >= 33 else "#e74c3c"
-
-
-def _rhr_color(v):           # más bajo, mejor (rango 100–50)
-    if v is None:
-        return TRACK_COLOR
-    return "#2ecc71" if v < 65 else "#f1c40f" if v <= 75 else "#e74c3c"
+    if higher_better:
+        return GREEN if v >= good else AMBER if v >= ok else RED
+    return GREEN if v < good else AMBER if v <= ok else RED
 
 
 def ring(value, title, lo, hi, color, decimals=0):
@@ -212,19 +199,21 @@ st.header("Hoy")
 st.subheader(TODAY)
 
 day = db.get_day(TODAY) or {}
+# Todos los días, cargados una sola vez (para el calendario NoFap y el análisis).
+df = db.load_days_df()
 
 # --- Whoop rings (read-only; filled by the Whoop CSV import) ---
 g = st.columns(5)
 g[0].plotly_chart(ring(day.get("recovery"), "Recovery", 0, 100,
-                       _recovery_color(day.get("recovery"))), width="stretch")
+                       _band_color(day.get("recovery"), 67, 34)), width="stretch")
 g[1].plotly_chart(ring(day.get("hrv"), "HRV (ms)", 20, 60,
-                       _hrv_color(day.get("hrv"))), width="stretch")
+                       _band_color(day.get("hrv"), 47, 33)), width="stretch")
 g[2].plotly_chart(ring(day.get("strain"), "Strain", 0, 21, STRAIN_COLOR,
                        decimals=1), width="stretch")
 g[3].plotly_chart(ring(day.get("rhr"), "RHR (ppm)", 100, 50,
-                       _rhr_color(day.get("rhr"))), width="stretch")
+                       _band_color(day.get("rhr"), 65, 75, higher_better=False)), width="stretch")
 g[4].plotly_chart(ring(day.get("sleep_hours"), "Sueño (h)", 0, 9,
-                       _sleep_color(day.get("sleep_hours")), decimals=1), width="stretch")
+                       _band_color(day.get("sleep_hours"), 7.5, 6.5), decimals=1), width="stretch")
 
 # --- habit logger (izq.) + calendario NoFap (dcha.) ---
 log_col, cal_col = st.columns([0.62, 0.38])
@@ -250,10 +239,9 @@ with log_col:
         saved = st.form_submit_button("💾 Guardar hoy", width="stretch")
 
 with cal_col:
-    _ddf = db.load_days_df()
     _nofap = set()
-    if not _ddf.empty and "fap" in _ddf.columns:
-        _nofap = set(pd.to_datetime(_ddf.loc[_ddf["fap"] == 0, "date"]).dt.date)
+    if not df.empty and "fap" in df.columns:
+        _nofap = set(pd.to_datetime(df.loc[df["fap"] == 0, "date"]).dt.date)
 
     # Mes mostrado = mes actual + offset (≤ 0; no se permite ir al futuro).
     _off = st.session_state.get("nofap_offset", 0)
@@ -351,7 +339,7 @@ if workouts_today or day.get("workout_min"):
     if sum(zones) > 0:
         zfig = go.Figure(go.Bar(
             x=[f"Z{i}" for i in range(1, 6)], y=zones,
-            marker_color=["#2ecc71", "#3498db", "#f1c40f", "#e67e22", "#e74c3c"],
+            marker_color=[GREEN, STRAIN_COLOR, AMBER, "#e67e22", RED],
             text=[f"{z:.0f}" for z in zones], textposition="outside",
         ))
         zfig.update_layout(
@@ -378,7 +366,6 @@ else:
 st.divider()
 st.header("Análisis")
 
-df = db.load_days_df()
 all_vars = db.INPUT_VARS + db.WHOOP_VARS
 
 # X/Y pickers: agrupa las variables booleanas (0/1) separadas del resto con una
@@ -449,7 +436,7 @@ if len(sub) >= 1 and xvar != yvar:
     sc.add_trace(go.Scatter(
         x=sub[xvar], y=sub[yvar], mode="markers",
         marker=dict(size=9, opacity=0.85, color=recency,
-                    colorscale=[[0, "#e74c3c"], [1, "#2e86de"]],
+                    colorscale=[[0, RED], [1, "#2e86de"]],
                     colorbar=dict(title="reciente →"), showscale=True),
         text=sub["date"].dt.strftime("%Y-%m-%d"),
         hovertemplate=f"%{{text}}<br>{label(xvar)}=%{{x}}<br>{label(yvar)}=%{{y}}<extra></extra>",
@@ -492,12 +479,9 @@ z = r_mat.values.astype(float)
 
 # Theme-aware palette so the matrix blends in light AND dark mode: in dark mode
 # r≈0 maps to a dark tone instead of RdBu's white (which would clash).
-if _is_dark():
-    colorscale = [[0.0, "#c0392b"], [0.5, "#23232b"], [1.0, "#2e86de"]]
-    fg = "#e6e6e6"
-else:
-    colorscale = "RdBu"
-    fg = "#31333F"
+colorscale = ([[0.0, "#c0392b"], [0.5, "#23232b"], [1.0, "#2e86de"]]
+              if _is_dark() else "RdBu")
+fg = _fg()
 
 heat = go.Figure(go.Heatmap(
     z=z,

@@ -4,8 +4,8 @@ One row per calendar day in `days`, plus `tasks`, `workouts`, and a tiny `meta`
 key/value table. The schema is defined once in DAYS_SCHEMA and a small migration
 adds any missing columns to an existing database (so upgrades are painless).
 """
+import sqlite3
 from contextlib import contextmanager
-from datetime import time
 from pathlib import Path
 
 import pandas as pd
@@ -97,7 +97,6 @@ LABELS = {
 # --- connection ------------------------------------------------------------
 @contextmanager
 def _conn():
-    import sqlite3
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -161,14 +160,11 @@ def set_meta(key, value):
 
 # --- bedtime helpers -------------------------------------------------------
 def bedtime_to_num(hhmm):
-    """Monotonic decimal hours; pre-midday wraps to +24.
+    """Monotonic decimal hours from an 'HH:MM' string; pre-midday wraps to +24.
     '23:30' -> 23.5, '00:45' -> 24.75, '01:00' -> 25.0. None for empty input."""
-    if hhmm is None or hhmm == "":
+    if not hhmm:
         return None
-    if isinstance(hhmm, time):
-        h, m = hhmm.hour, hhmm.minute
-    else:
-        h, m = (int(x) for x in str(hhmm).split(":")[:2])
+    h, m = (int(x) for x in str(hhmm).split(":")[:2])
     val = h + m / 60.0
     if h < 12:
         val += 24.0
