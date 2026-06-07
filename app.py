@@ -13,24 +13,19 @@ import streamlit as st
 
 import analysis
 import db
-import seed
 import whoop_import
 
 st.set_page_config(page_title="Señal", page_icon="📡", layout="wide")
 
 # --- bootstrap: schema + first-run data ------------------------------------
 # The SQLite DB (senal.db) persists across restarts and code changes. On a fresh
-# DB we load real Whoop CSVs from ./data (or the project root) if present, and
-# only fall back to synthetic demo data otherwise. So dropping your export in
-# ./data once means the app rebuilds your real data automatically even if
+# DB we load the real Whoop CSVs from ./data if present. So dropping your export
+# in ./data once means the app rebuilds your real data automatically even if
 # senal.db is ever deleted — no need to re-upload.
 DATA_DIR = Path(__file__).parent / "data"
 db.init_db()
 if db.get_meta("seeded") != "1":
-    loaded = (whoop_import.import_from_folder(DATA_DIR)
-              or whoop_import.import_from_folder(Path(__file__).parent))
-    if not loaded:
-        seed.seed_synthetic()
+    whoop_import.import_from_folder(DATA_DIR)
     db.set_meta("seeded", "1")
 
 TODAY = date.today().isoformat()
@@ -174,9 +169,6 @@ def nofap_calendar_html(year, month, nofap_dates, today):
 with st.sidebar:
     st.header("Datos")
     st.metric("Días registrados", db.count_days())
-    if st.button("🔄 Reset + datos sintéticos", width="stretch"):
-        seed.seed_synthetic()
-        st.rerun()
     if st.button("🗑️ Borrar todo", width="stretch"):
         db.clear_all()
         st.rerun()
@@ -198,10 +190,9 @@ with st.sidebar:
             st.rerun()
     if st.button("📂 Importar desde /data", width="stretch",
                  help="Lee los CSV de Whoop guardados en la carpeta ./data"):
-        s = (whoop_import.import_from_folder(DATA_DIR)
-             or whoop_import.import_from_folder(Path(__file__).parent))
+        s = whoop_import.import_from_folder(DATA_DIR)
         if not s:
-            st.warning("No encontré CSV de Whoop en ./data ni junto a app.py.")
+            st.warning("No encontré CSV de Whoop en ./data.")
         else:
             st.success(f"Importado: {s['days']} días, {s['workouts']} actividades.")
             st.rerun()

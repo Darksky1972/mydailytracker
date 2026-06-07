@@ -175,15 +175,6 @@ def bedtime_to_num(hhmm):
     return round(val, 4)
 
 
-def num_to_clock(num):
-    """Inverse of bedtime_to_num: 23.5 -> '23:30', 24.75 -> '00:45'."""
-    h = int(num) % 24
-    m = int(round((num - int(num)) * 60))
-    if m == 60:
-        m, h = 0, (h + 1) % 24
-    return f"{h:02d}:{m:02d}"
-
-
 # --- days ------------------------------------------------------------------
 def upsert_day(day_date, values):
     """Insert or update a day; only provided columns are written."""
