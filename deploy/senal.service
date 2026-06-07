@@ -1,0 +1,15 @@
+[Unit]
+Description=Senal (Streamlit habit/biometrics tracker)
+After=network.target
+
+[Service]
+Type=simple
+User=senal
+Group=senal
+WorkingDirectory=/opt/senal
+ExecStart=/opt/senal/.venv/bin/streamlit run app.py --server.port 8501 --server.address 127.0.0.1 --server.headless true --browser.gatherUsageStats false
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+# --- Datos personales (NUNCA subir a GitHub) ---
+senal.db
+*.db
+*.db-*
+data/*.csv
+backups/
+
+# --- Entornos / cachés ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+.streamlit/

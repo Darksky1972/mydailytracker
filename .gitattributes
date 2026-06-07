@@ -1,0 +1,9 @@
+# Normaliza finales de línea para que los scripts de Linux nunca lleven CRLF.
+* text=auto
+*.sh        text eol=lf
+*.service   text eol=lf
+*.conf      text eol=lf
+*.py        text eol=lf
+# Estos son de Windows:
+*.ps1       text eol=crlf
+*.bat       text eol=crlf
