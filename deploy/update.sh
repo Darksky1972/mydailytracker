@@ -3,6 +3,8 @@
 # Uso (en la terminal de la VPS):  bash /opt/senal/deploy/update.sh
 set -euo pipefail
 cd /opt/senal
+# Ignora cambios de permisos para que el chmod +x de abajo no haga fallar el pull.
+git config core.fileMode false
 echo ">> Descargando últimos cambios de GitHub..."
 git pull --ff-only origin main
 chmod +x deploy/*.sh 2>/dev/null || true
