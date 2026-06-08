@@ -4,7 +4,7 @@
 set -euo pipefail
 cd /opt/senal
 echo ">> Descargando últimos cambios de GitHub..."
-git pull --ff-only
+git pull --ff-only origin main
 chmod +x deploy/*.sh 2>/dev/null || true
 echo ">> Reiniciando la app..."
 systemctl restart senal
