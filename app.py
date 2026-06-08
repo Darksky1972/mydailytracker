@@ -355,23 +355,26 @@ with manana_col:
 st.markdown("### Actividad de hoy")
 workouts_today = db.get_workouts(TODAY)
 zones = [day.get(f"hr_zone{i}_min") or 0 for i in range(1, 6)]
+# Zona 0 = tiempo por debajo de Z1 = total − suma(Z1..Z5).
+zone_vals = [max(0.0, (day.get("workout_min") or 0) - sum(zones))] + zones
 if workouts_today or day.get("workout_min"):
     a1, a2, a3 = st.columns(3)
     a1.metric("Tiempo total", f"{int(day.get('workout_min') or 0)} min")
     a2.metric("Calorías", f"{int(day.get('workout_calories') or 0)} cal")
     a3.metric("FC media", f"{int(day.get('workout_avg_hr') or 0)} ppm")
-    if sum(zones) > 0:
+    if sum(zone_vals) > 0:
         zfig = go.Figure(go.Bar(
-            x=[f"Z{i}" for i in range(1, 6)], y=zones,
-            marker_color=[GREEN, STRAIN_COLOR, AMBER, "#e67e22", RED],
-            text=[f"{z:.0f}" for z in zones], textposition="outside",
+            x=[f"Z{i}" for i in range(6)], y=zone_vals,
+            marker_color=["#95a5a6", GREEN, STRAIN_COLOR, AMBER, "#e67e22", RED],
+            text=[f"{z:.0f}" for z in zone_vals], textposition="outside",
         ))
         zfig.update_layout(
-            height=240, margin=dict(l=10, r=10, t=40, b=10),
+            height=260, margin=dict(l=10, r=10, t=40, b=45),
             title={"text": "Minutos por zona de FC", "x": 0.5, "xanchor": "center"},
             yaxis_title="min", paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)", font=dict(color=_fg()),
         )
+        zfig.update_xaxes(automargin=True)
         st.plotly_chart(zfig, width="stretch", theme=None)
     for w in workouts_today:
         st.write(
