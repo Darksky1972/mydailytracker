@@ -14,7 +14,7 @@ DB_PATH = Path(__file__).parent / "senal.db"
 
 # --- variable groups -------------------------------------------------------
 BOOL_HABITS = ["entreno_manana", "estiramientos", "journaling", "leer", "fap",
-               "cafeina", "alcohol", "siesta"]
+               "beber_agua", "cafeina", "alcohol", "siesta"]
 NUM_HABITS = ["japones_min", "pantalla_noche_min"]
 # Numeric habit variables exposed in the análisis section:
 HABIT_VARS = BOOL_HABITS + NUM_HABITS + ["hora_dormir_num", "tareas_pct"]
@@ -41,6 +41,7 @@ DAYS_SCHEMA = [
     # habits (bool 0/1)
     ("entreno_manana", "INTEGER"), ("estiramientos", "INTEGER"),
     ("journaling", "INTEGER"), ("leer", "INTEGER"), ("fap", "INTEGER"),
+    ("beber_agua", "INTEGER"),
     ("cafeina", "INTEGER"), ("alcohol", "INTEGER"), ("siesta", "INTEGER"),
     # habits (numeric)
     ("japones_min", "INTEGER"), ("pantalla_noche_min", "INTEGER"),
@@ -72,6 +73,7 @@ LABELS = {
     "journaling": "Journaling",
     "leer": "Leer en cama",
     "fap": "Fap",
+    "beber_agua": "Beber agua (min 3 botellas)",
     "cafeina": "Cafeína",
     "alcohol": "Alcohol",
     "siesta": "Siesta",

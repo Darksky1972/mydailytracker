@@ -220,12 +220,14 @@ log_col, cal_col = st.columns([0.62, 0.38])
 with log_col:
     with st.form("logger"):
         st.markdown("**Hábitos**")
-        h = st.columns(5)
+        h = st.columns(3)
         entreno = h[0].checkbox("Entreno mañana", bool(day.get("entreno_manana")))
         estir = h[1].checkbox("Estiramientos", bool(day.get("estiramientos")))
         journ = h[2].checkbox("Journaling", bool(day.get("journaling")))
-        leer = h[3].checkbox("Leer en cama", bool(day.get("leer")))
-        fap = h[4].checkbox("Fap", bool(day.get("fap")))
+        h2 = st.columns(3)
+        leer = h2[0].checkbox("Leer en cama", bool(day.get("leer")))
+        fap = h2[1].checkbox("Fap", bool(day.get("fap")))
+        agua = h2[2].checkbox("Beber agua (min 3 botellas)", bool(day.get("beber_agua")))
 
         n1, n2 = st.columns(2)
         japones = n1.slider("Japonés (min)", 0, 120,
@@ -273,6 +275,7 @@ if saved:
         "journaling": int(journ),
         "leer": int(leer),
         "fap": int(fap),
+        "beber_agua": int(agua),
         "japones_min": int(japones),
         "pantalla_noche_min": int(pantalla),
         "tareas_pct": db.tasks_pct(TODAY),
