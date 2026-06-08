@@ -251,9 +251,10 @@ def get_workouts(day_date):
 
 # --- tasks -----------------------------------------------------------------
 def get_tasks(day_date):
+    # Orden: prioridad alta primero (3→1) y, a igualdad, por orden de creación.
     with _conn() as conn:
         rows = conn.execute(
-            "SELECT * FROM tasks WHERE date=? ORDER BY id", (day_date,)
+            "SELECT * FROM tasks WHERE date=? ORDER BY priority DESC, id", (day_date,)
         ).fetchall()
     return [dict(r) for r in rows]
 
