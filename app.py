@@ -364,11 +364,11 @@ if workouts_today or day.get("workout_min"):
     a3.metric("FC media", f"{int(day.get('workout_avg_hr') or 0)} ppm")
     if sum(zone_vals) > 0:
         zfig = go.Figure(go.Bar(
-            x=[f"Z{i}" for i in range(6)], y=zone_vals,
+            x=[f"<b>Z{i}</b>" for i in range(6)], y=zone_vals,
             marker_color=["#95a5a6", GREEN, STRAIN_COLOR, AMBER, "#e67e22", RED],
-            text=[f"{z:.0f}" if z > 0 else "" for z in zone_vals],
+            text=[f"<b>{z:.0f}</b>" if z > 0 else "" for z in zone_vals],
             textposition="inside", insidetextanchor="middle",
-            insidetextfont=dict(size=18),   # color automático: contrasta con cada barra
+            insidetextfont=dict(size=20),   # color automático: contrasta con cada barra
         ))
         zfig.update_layout(
             height=270, margin=dict(l=15, r=10, t=48, b=45),
@@ -377,7 +377,7 @@ if workouts_today or day.get("workout_min"):
             yaxis_title="min", paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)", font=dict(color=_fg(), size=13),
         )
-        zfig.update_xaxes(automargin=True)
+        zfig.update_xaxes(automargin=True, tickfont=dict(size=15))
         zfig.update_yaxes(automargin=True)
         st.plotly_chart(zfig, width="stretch", theme=None)
     for w in workouts_today:
