@@ -15,7 +15,7 @@ DB_PATH = Path(__file__).parent / "senal.db"
 # --- variable groups -------------------------------------------------------
 BOOL_HABITS = ["entreno_manana", "estiramientos", "journaling", "leer", "fap",
                "beber_agua", "cafeina", "alcohol", "siesta"]
-NUM_HABITS = ["japones_min", "pantalla_noche_min"]
+NUM_HABITS = ["japones_min", "pantalla_noche_min", "pasos"]
 # Numeric habit variables exposed in the análisis section:
 HABIT_VARS = BOOL_HABITS + NUM_HABITS + ["hora_dormir_num", "tareas_pct"]
 # Activity/workout variables — also INPUTS (things you do), not shifted by lag:
@@ -29,9 +29,9 @@ WHOOP_VARS = ["recovery", "strain", "hrv", "rhr", "sleep_hours",
 # morning readings that reflect the previous night, so the lag toggle shifts them.
 SAMEDAY_WHOOP = ["strain"]
 LAGGED_WHOOP = [v for v in WHOOP_VARS if v not in SAMEDAY_WHOOP]
-# Manual fields you log the MORNING AFTER, so the value belongs to the previous
-# night (día D-1). They shift with the lag too, like the morning readings.
-LAGGED_INPUTS = ["pantalla_noche_min"]
+# Manual fields you log the DAY AFTER, so the value belongs to the previous day
+# (día D-1). They shift with the lag too, like the morning readings.
+LAGGED_INPUTS = ["pantalla_noche_min", "pasos"]
 # Everything that gets shifted when the lag toggle is on:
 LAGGED_VARS = LAGGED_WHOOP + LAGGED_INPUTS
 
@@ -45,6 +45,7 @@ DAYS_SCHEMA = [
     ("cafeina", "INTEGER"), ("alcohol", "INTEGER"), ("siesta", "INTEGER"),
     # habits (numeric)
     ("japones_min", "INTEGER"), ("pantalla_noche_min", "INTEGER"),
+    ("pasos", "INTEGER"),
     ("hora_dormir", "TEXT"), ("hora_dormir_num", "REAL"),
     ("tareas_pct", "REAL"),
     # whoop biometrics
@@ -79,6 +80,7 @@ LABELS = {
     "siesta": "Siesta",
     "japones_min": "Japonés (min)",
     "pantalla_noche_min": "Pantalla noche (min)",
+    "pasos": "Pasos",
     "hora_dormir_num": "Hora de dormir",
     "tareas_pct": "Tareas completadas (%)",
     "workout_min": "Actividad (min)",

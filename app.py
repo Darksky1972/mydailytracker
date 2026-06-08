@@ -235,7 +235,7 @@ with log_col:
         fap = h2[1].checkbox("Fap", bool(day.get("fap")))
         agua = h2[2].checkbox("Beber agua (min 3 botellas)", bool(day.get("beber_agua")))
 
-        n1, n2 = st.columns(2)
+        n1, n2, n3 = st.columns(3)
         japones = n1.slider("Japonés (min)", 0, 120,
                             min(int(default(day, "japones_min", 0)), 120))
         pantalla = n2.slider("Pantalla noche (min)", 0, 120,
@@ -243,6 +243,11 @@ with log_col:
                              help="Minutos de pantalla de anoche. Como lo registras a "
                                   "la mañana siguiente, en el análisis se desplaza como "
                                   "una métrica de la noche anterior.")
+        pasos = n3.number_input("Pasos", min_value=0, max_value=100000, step=500,
+                                value=int(default(day, "pasos", 0)),
+                                help="Pasos del día (los apuntas al día siguiente desde "
+                                     "la app de Whoop). En el análisis se desplazan como "
+                                     "una métrica del día anterior, igual que Pantalla noche.")
 
         saved = st.form_submit_button("💾 Guardar hoy", width="stretch")
 
@@ -284,6 +289,7 @@ if saved:
         "beber_agua": int(agua),
         "japones_min": int(japones),
         "pantalla_noche_min": int(pantalla),
+        "pasos": int(pasos),
         "tareas_pct": db.tasks_pct(TODAY),
     })
     st.success("Día guardado ✅")
@@ -424,8 +430,8 @@ lag = st.toggle(
     value=True,
     help="Recovery, HRV, RHR y sueño se miden por la mañana y reflejan la noche "
          "anterior, así que con el lag se emparejan hábito[día] con whoop[día+1]. "
-         "Pantalla noche se registra a la mañana siguiente, así que también se "
-         "desplaza. El Strain se acumula durante el día, así que SIEMPRE es del "
+         "Pantalla noche y Pasos se registran al día siguiente, así que también se "
+         "desplazan. El Strain se acumula durante el día, así que SIEMPRE es del "
          "mismo día (no se desplaza con el lag).",
 )
 
