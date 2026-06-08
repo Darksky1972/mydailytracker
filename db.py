@@ -114,10 +114,11 @@ def init_db():
         conn.execute(f"CREATE TABLE IF NOT EXISTS days ({cols_sql})")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS tasks (
-                id    INTEGER PRIMARY KEY AUTOINCREMENT,
-                date  TEXT NOT NULL,
-                text  TEXT NOT NULL,
-                done  INTEGER DEFAULT 0
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                date     TEXT NOT NULL,
+                text     TEXT NOT NULL,
+                done     INTEGER DEFAULT 0,
+                priority INTEGER DEFAULT 2
             )
         """)
         conn.execute("""
@@ -142,6 +143,10 @@ def init_db():
             if name not in existing:
                 conn.execute(
                     f"ALTER TABLE days ADD COLUMN {name} {typ.replace(' PRIMARY KEY', '')}")
+        # migrate: older `tasks` tables may lack the priority column (1/2/3).
+        task_cols = {row[1] for row in conn.execute("PRAGMA table_info(tasks)")}
+        if "priority" not in task_cols:
+            conn.execute("ALTER TABLE tasks ADD COLUMN priority INTEGER DEFAULT 2")
 
 
 # --- meta ------------------------------------------------------------------
@@ -253,10 +258,11 @@ def get_tasks(day_date):
     return [dict(r) for r in rows]
 
 
-def add_task(day_date, text):
+def add_task(day_date, text, priority=2):
     with _conn() as conn:
         conn.execute(
-            "INSERT INTO tasks (date, text, done) VALUES (?, ?, 0)", (day_date, text)
+            "INSERT INTO tasks (date, text, done, priority) VALUES (?, ?, 0, ?)",
+            (day_date, text, priority),
         )
 
 
@@ -265,14 +271,22 @@ def set_task_done(task_id, done):
         conn.execute("UPDATE tasks SET done=? WHERE id=?", (1 if done else 0, task_id))
 
 
+def set_task_priority(task_id, priority):
+    with _conn() as conn:
+        conn.execute("UPDATE tasks SET priority=? WHERE id=?", (priority, task_id))
+
+
 def delete_task(task_id):
     with _conn() as conn:
         conn.execute("DELETE FROM tasks WHERE id=?", (task_id,))
 
 
 def tasks_pct(day_date):
+    """Porcentaje de tareas completadas PONDERADO por prioridad (alta=3, media=2,
+    baja=1): las tareas importantes llenan más la barra."""
     tasks = get_tasks(day_date)
     if not tasks:
         return None
-    done = sum(int(t["done"]) for t in tasks)
-    return round(done / len(tasks) * 100, 1)
+    total = sum((t.get("priority") or 2) for t in tasks)
+    done = sum((t.get("priority") or 2) for t in tasks if t["done"])
+    return round(done / total * 100, 1) if total else None

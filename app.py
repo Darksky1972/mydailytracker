@@ -43,6 +43,12 @@ def default(d, key, fallback):
     return fallback if val is None else val
 
 
+# Prioridad de tareas (el número es el peso: la barra de completadas pondera por él).
+PRIO_ORDER = [3, 2, 1]                                    # alta → baja (orden del selector)
+PRIO_LABELS = {3: "🔴 Alta", 2: "🟡 Media", 1: "🟢 Baja"}
+PRIO_EMOJI = {3: "🔴", 2: "🟡", 1: "🟢"}
+
+
 # ---------------------------------------------------------------------------
 # Gauges
 # ---------------------------------------------------------------------------
@@ -288,46 +294,61 @@ hoy_col, manana_col = st.columns(2)
 with hoy_col:
     st.markdown("### Tareas de hoy")
     for t in db.get_tasks(TODAY):
-        tc1, tc2 = st.columns([0.92, 0.08])
+        tc1, tc2, tc3 = st.columns([0.56, 0.32, 0.12])
         checked = tc1.checkbox(t["text"], bool(t["done"]), key=f"task_{t['id']}")
+        prio = tc2.selectbox(
+            "Prioridad", PRIO_ORDER, index=PRIO_ORDER.index(t.get("priority") or 2),
+            format_func=lambda p: PRIO_LABELS[p], key=f"prio_{t['id']}",
+            label_visibility="collapsed")
         if checked != bool(t["done"]):
             db.set_task_done(t["id"], checked)
             db.upsert_day(TODAY, {"tareas_pct": db.tasks_pct(TODAY)})
             st.rerun()
-        if tc2.button("🗑️", key=f"del_{t['id']}", help="Eliminar tarea"):
+        if prio != (t.get("priority") or 2):
+            db.set_task_priority(t["id"], prio)
+            db.upsert_day(TODAY, {"tareas_pct": db.tasks_pct(TODAY)})
+            st.rerun()
+        if tc3.button("🗑️", key=f"del_{t['id']}", help="Eliminar tarea"):
             db.delete_task(t["id"])
             db.upsert_day(TODAY, {"tareas_pct": db.tasks_pct(TODAY)})
             st.rerun()
 
     with st.form("add_task", clear_on_submit=True):
-        ac1, ac2 = st.columns([0.85, 0.15])
+        ac1, ac2, ac3 = st.columns([0.55, 0.30, 0.15])
         new_task = ac1.text_input("Nueva tarea", label_visibility="collapsed",
                                   placeholder="Añadir tarea…")
-        if ac2.form_submit_button("➕ Añadir", width="stretch") and new_task.strip():
-            db.add_task(TODAY, new_task.strip())
+        new_prio = ac2.selectbox("Prioridad", PRIO_ORDER, index=1,
+                                 format_func=lambda p: PRIO_LABELS[p],
+                                 key="prio_add_hoy", label_visibility="collapsed")
+        if ac3.form_submit_button("➕", width="stretch") and new_task.strip():
+            db.add_task(TODAY, new_task.strip(), new_prio)
             db.upsert_day(TODAY, {"tareas_pct": db.tasks_pct(TODAY)})
             st.rerun()
 
     pct_today = db.tasks_pct(TODAY)
     st.progress((pct_today or 0) / 100,
                 text=f"Tareas completadas: {0 if pct_today is None else pct_today:.0f}%")
+    st.caption("Ponderado por prioridad: 🔴 Alta ×3 · 🟡 Media ×2 · 🟢 Baja ×1.")
 
 with manana_col:
     st.markdown("### Tareas para mañana")
     st.caption(f"Se planifican para el {TOMORROW}. Mañana aparecerán en «Tareas de hoy».")
     for t in db.get_tasks(TOMORROW):
         mc1, mc2 = st.columns([0.92, 0.08])
-        mc1.write(f"• {t['text']}")
+        mc1.write(f"{PRIO_EMOJI[t.get('priority') or 2]} {t['text']}")
         if mc2.button("🗑️", key=f"del_tmrw_{t['id']}", help="Eliminar tarea"):
             db.delete_task(t["id"])
             st.rerun()
 
     with st.form("add_task_tmrw", clear_on_submit=True):
-        bc1, bc2 = st.columns([0.85, 0.15])
+        bc1, bc2, bc3 = st.columns([0.55, 0.30, 0.15])
         new_task_t = bc1.text_input("Nueva tarea mañana", label_visibility="collapsed",
                                     placeholder="Añadir tarea para mañana…")
-        if bc2.form_submit_button("➕ Añadir", width="stretch") and new_task_t.strip():
-            db.add_task(TOMORROW, new_task_t.strip())
+        new_prio_t = bc2.selectbox("Prioridad", PRIO_ORDER, index=1,
+                                   format_func=lambda p: PRIO_LABELS[p],
+                                   key="prio_add_tmrw", label_visibility="collapsed")
+        if bc3.form_submit_button("➕", width="stretch") and new_task_t.strip():
+            db.add_task(TOMORROW, new_task_t.strip(), new_prio_t)
             st.rerun()
 
 # --- Actividad de hoy (workouts importados de Whoop) ---
