@@ -53,6 +53,8 @@ DAYS_SCHEMA = [
     ("recovery", "REAL"), ("strain", "REAL"), ("hrv", "REAL"), ("rhr", "REAL"),
     ("sleep_hours", "REAL"), ("sleep_performance", "REAL"),
     ("resp_rate", "REAL"), ("skin_temp", "REAL"), ("spo2", "REAL"),
+    # calorías quemadas TOTALES del día (gasto energético del ciclo de Whoop)
+    ("calories_burned", "REAL"),
     # workout aggregates (per day)
     ("workout_min", "REAL"), ("workout_calories", "REAL"),
     ("workout_avg_hr", "REAL"), ("workout_max_hr", "REAL"),
@@ -97,6 +99,7 @@ LABELS = {
     "resp_rate": "Frec. respiratoria",
     "skin_temp": "Temp. piel (°C)",
     "spo2": "SpO₂ (%)",
+    "calories_burned": "Calorías quemadas (día)",
 }
 
 
@@ -137,6 +140,29 @@ def init_db():
                 max_hr       REAL,
                 strain       REAL,
                 z1_min REAL, z2_min REAL, z3_min REAL, z4_min REAL, z5_min REAL
+            )
+        """)
+        # comidas registradas por día (calorías + macros)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS meals (
+                id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                date    TEXT NOT NULL,
+                name    TEXT NOT NULL,
+                kcal    REAL,
+                protein REAL,
+                carbs   REAL,
+                fat     REAL
+            )
+        """)
+        # "base de datos" de comidas recurrentes (plantillas reutilizables)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS meal_presets (
+                id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                name    TEXT NOT NULL,
+                kcal    REAL,
+                protein REAL,
+                carbs   REAL,
+                fat     REAL
             )
         """)
         conn.execute(
@@ -217,11 +243,13 @@ def count_days():
 
 
 def clear_all():
-    """Wipe everything (days, tasks, workouts)."""
+    """Wipe everything (days, tasks, workouts, meals). Conserva las plantillas de
+    comidas recurrentes (`meal_presets`): son una biblioteca reutilizable."""
     with _conn() as conn:
         conn.execute("DELETE FROM days")
         conn.execute("DELETE FROM tasks")
         conn.execute("DELETE FROM workouts")
+        conn.execute("DELETE FROM meals")
 
 
 def clear_days():
@@ -302,3 +330,64 @@ def tasks_pct(day_date):
     total = sum((t.get("priority") or 2) for t in tasks)
     done = sum((t.get("priority") or 2) for t in tasks if t["done"])
     return round(done / total * 100, 1) if total else None
+
+
+# --- meals (comidas registradas por día) -----------------------------------
+def get_meals(day_date):
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM meals WHERE date=? ORDER BY id", (day_date,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_meal(day_date, name, kcal, protein=None, carbs=None, fat=None):
+    with _conn() as conn:
+        conn.execute(
+            "INSERT INTO meals (date, name, kcal, protein, carbs, fat) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (day_date, name, kcal, protein, carbs, fat))
+
+
+def delete_meal(meal_id):
+    with _conn() as conn:
+        conn.execute("DELETE FROM meals WHERE id=?", (meal_id,))
+
+
+def meals_totals(day_date):
+    """Suma de kcal y macros de las comidas de un día."""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT COALESCE(SUM(kcal),0) k, COALESCE(SUM(protein),0) p, "
+            "COALESCE(SUM(carbs),0) c, COALESCE(SUM(fat),0) f, COUNT(*) n "
+            "FROM meals WHERE date=?", (day_date,)).fetchone()
+    return {"kcal": row["k"], "protein": row["p"], "carbs": row["c"],
+            "fat": row["f"], "n": row["n"]}
+
+
+def meals_by_day():
+    """{fecha: {kcal, protein, carbs, fat}} sumado por día (solo días con comidas)."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT date, SUM(kcal) kcal, SUM(protein) protein, SUM(carbs) carbs, "
+            "SUM(fat) fat FROM meals GROUP BY date ORDER BY date").fetchall()
+    return {r["date"]: dict(r) for r in rows}
+
+
+# --- meal presets (comidas recurrentes guardadas) --------------------------
+def get_meal_presets():
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM meal_presets ORDER BY name COLLATE NOCASE").fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_meal_preset(name, kcal, protein=None, carbs=None, fat=None):
+    with _conn() as conn:
+        conn.execute(
+            "INSERT INTO meal_presets (name, kcal, protein, carbs, fat) "
+            "VALUES (?, ?, ?, ?, ?)", (name, kcal, protein, carbs, fat))
+
+
+def delete_meal_preset(preset_id):
+    with _conn() as conn:
+        conn.execute("DELETE FROM meal_presets WHERE id=?", (preset_id,))

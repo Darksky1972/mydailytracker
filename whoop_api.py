@@ -178,7 +178,11 @@ def _build(data):
         _set(r, "skin_temp", sc.get("skin_temp_celsius"))
         cyc = cycles_by_id.get(rec.get("cycle_id"))
         if cyc:
-            _set(r, "strain", (cyc.get("score") or {}).get("strain"))
+            csc = cyc.get("score") or {}
+            _set(r, "strain", csc.get("strain"))
+            kj = _num(csc.get("kilojoule"))     # gasto energético total del día
+            if kj is not None:
+                r["calories_burned"] = round(kj / 4.184)   # kJ -> kcal
         ssc = slp.get("score") or {}
         stg = ssc.get("stage_summary") or {}
         asleep = ((stg.get("total_light_sleep_time_milli") or 0)

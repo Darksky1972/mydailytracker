@@ -441,6 +441,145 @@ with manana_col:
             db.add_task(TOMORROW, new_task_t.strip(), new_prio_t)
             st.rerun()
 
+# --- Calorías / nutrición --------------------------------------------------
+st.markdown("### 🍽️ Calorías")
+cal_reg, cal_hist, cal_db = st.tabs(
+    ["Registrar", "Días pasados", "Comidas guardadas"])
+
+# Registrar: añadir comidas (manual o desde plantilla) y ver el balance del día.
+with cal_reg:
+    meal_date = st.date_input("Día", value=date.today(), max_value=date.today(),
+                              key="meal_date").isoformat()
+    presets = db.get_meal_presets()
+
+    # Atajo: añadir una comida ya guardada con un clic.
+    if presets:
+        pc1, pc2 = st.columns([0.78, 0.22])
+        _pick = pc1.selectbox(
+            "Añadir comida guardada", presets,
+            format_func=lambda p: f"{p['name']} · {(p['kcal'] or 0):.0f} kcal",
+            key="meal_preset_pick", index=None,
+            placeholder="Elige una comida guardada…", label_visibility="collapsed")
+        if pc2.button("➕ Añadir", key="add_from_preset", width="stretch") and _pick:
+            db.add_meal(meal_date, _pick["name"], _pick["kcal"],
+                        _pick["protein"], _pick["carbs"], _pick["fat"])
+            st.rerun()
+
+    # Añadir una comida nueva (con sus macros).
+    with st.form("add_meal", clear_on_submit=True):
+        st.markdown("**Añadir comida**")
+        mc = st.columns([0.4, 0.15, 0.15, 0.15, 0.15])
+        m_name = mc[0].text_input("Comida", placeholder="p. ej. Pollo con arroz")
+        m_kcal = mc[1].number_input("kcal", 0, 10000, step=50)
+        m_prot = mc[2].number_input("Prot (g)", 0, 1000, step=5)
+        m_carb = mc[3].number_input("Carbs (g)", 0, 1000, step=5)
+        m_fat = mc[4].number_input("Grasa (g)", 0, 1000, step=5)
+        save_preset = st.checkbox("Guardar también como comida recurrente")
+        if st.form_submit_button("➕ Añadir comida", width="stretch") and m_name.strip():
+            db.add_meal(meal_date, m_name.strip(), m_kcal, m_prot, m_carb, m_fat)
+            if save_preset:
+                db.add_meal_preset(m_name.strip(), m_kcal, m_prot, m_carb, m_fat)
+            st.rerun()
+
+    # Comidas del día seleccionado.
+    meals = db.get_meals(meal_date)
+    for m in meals:
+        lc1, lc2, lc3 = st.columns([0.5, 0.42, 0.08])
+        lc1.write(f"**{m['name']}**")
+        lc2.caption(f"{(m['kcal'] or 0):.0f} kcal · P {(m['protein'] or 0):.0f} · "
+                    f"C {(m['carbs'] or 0):.0f} · G {(m['fat'] or 0):.0f}")
+        if lc3.button("🗑️", key=f"del_meal_{m['id']}", help="Eliminar comida"):
+            db.delete_meal(m["id"])
+            st.rerun()
+
+    # Totales del día + balance contra lo quemado (Whoop).
+    tot = db.meals_totals(meal_date)
+    mday = db.get_day(meal_date) or {}
+    burned = mday.get("calories_burned")
+    t1, t2, t3, t4 = st.columns(4)
+    t1.metric("Consumidas", f"{tot['kcal']:.0f} kcal")
+    t2.metric("Proteínas", f"{tot['protein']:.0f} g")
+    t3.metric("Carbohidratos", f"{tot['carbs']:.0f} g")
+    t4.metric("Grasas", f"{tot['fat']:.0f} g")
+    if burned:
+        diff = burned - tot["kcal"]
+        b1, b2, b3 = st.columns(3)
+        b1.metric("Quemadas (Whoop)", f"{burned:.0f} kcal")
+        b2.metric("Consumidas", f"{tot['kcal']:.0f} kcal")
+        b3.metric(
+            "Diferencia", f"{diff:+.0f} kcal",
+            delta="déficit" if diff >= 0 else "superávit", delta_color="off",
+            help="Quemadas − consumidas. Positivo = déficit (gastas más de lo que comes).")
+    else:
+        st.caption("Sin dato de calorías quemadas de Whoop para este día. "
+                   "Sincroniza Whoop (o reimporta los CSV) para ver el balance.")
+
+# Días pasados: tabla y gráfico de consumido vs quemado, con la diferencia.
+with cal_hist:
+    by_day = db.meals_by_day()
+    if not by_day:
+        st.caption("Aún no has registrado comidas. Empieza en la pestaña «Registrar».")
+    else:
+        rows = []
+        for d in sorted(by_day, reverse=True):
+            consumed = round(by_day[d]["kcal"] or 0)
+            dd = db.get_day(d) or {}
+            bd = dd.get("calories_burned")
+            bd = round(bd) if bd else None
+            rows.append({
+                "Día": d, "Consumidas": consumed,
+                "Quemadas (Whoop)": bd,
+                "Diferencia": (bd - consumed) if bd is not None else None,
+            })
+        hist = pd.DataFrame(rows)
+        st.dataframe(hist, width="stretch", hide_index=True)
+        st.caption("Diferencia = quemadas − consumidas. Positivo = déficit calórico.")
+
+        chart = hist[hist["Quemadas (Whoop)"].notna()].sort_values("Día").tail(30)
+        if not chart.empty:
+            cfig = go.Figure()
+            cfig.add_trace(go.Bar(x=chart["Día"], y=chart["Consumidas"],
+                                  name="Consumidas", marker_color=AMBER))
+            cfig.add_trace(go.Bar(x=chart["Día"], y=chart["Quemadas (Whoop)"],
+                                  name="Quemadas", marker_color=STRAIN_COLOR))
+            cfig.update_layout(
+                barmode="group", height=320, margin=dict(l=10, r=10, t=30, b=10),
+                title={"text": "Consumido vs quemado", "x": 0.5, "xanchor": "center"},
+                yaxis_title="kcal", paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)", font=dict(color=_fg()),
+                legend=dict(orientation="h", y=1.12, x=0.5, xanchor="center"))
+            cfig.update_xaxes(automargin=True)
+            cfig.update_yaxes(automargin=True)
+            st.plotly_chart(cfig, width="stretch", theme=None)
+
+# Comidas guardadas: la "base de datos" de comidas recurrentes.
+with cal_db:
+    st.caption("Comidas que repites a menudo. Guárdalas aquí y añádelas con un clic "
+               "desde la pestaña «Registrar».")
+    with st.form("add_preset", clear_on_submit=True):
+        dc = st.columns([0.4, 0.15, 0.15, 0.15, 0.15])
+        d_name = dc[0].text_input("Comida", placeholder="p. ej. Tortilla francesa")
+        d_kcal = dc[1].number_input("kcal", 0, 10000, step=50, key="preset_kcal")
+        d_prot = dc[2].number_input("Prot (g)", 0, 1000, step=5, key="preset_prot")
+        d_carb = dc[3].number_input("Carbs (g)", 0, 1000, step=5, key="preset_carb")
+        d_fat = dc[4].number_input("Grasa (g)", 0, 1000, step=5, key="preset_fat")
+        if st.form_submit_button("💾 Guardar comida", width="stretch") and d_name.strip():
+            db.add_meal_preset(d_name.strip(), d_kcal, d_prot, d_carb, d_fat)
+            st.rerun()
+
+    pres = db.get_meal_presets()
+    if not pres:
+        st.caption("Todavía no hay comidas guardadas.")
+    for p in pres:
+        gc1, gc2, gc3 = st.columns([0.5, 0.42, 0.08])
+        gc1.write(f"**{p['name']}**")
+        gc2.caption(f"{(p['kcal'] or 0):.0f} kcal · P {(p['protein'] or 0):.0f} · "
+                    f"C {(p['carbs'] or 0):.0f} · G {(p['fat'] or 0):.0f}")
+        if gc3.button("🗑️", key=f"del_preset_{p['id']}", help="Eliminar comida guardada"):
+            db.delete_meal_preset(p["id"])
+            st.rerun()
+
+
 # --- Actividad de hoy (workouts importados de Whoop) ---
 st.markdown("### Actividad de hoy")
 workouts_today = db.get_workouts(TODAY)

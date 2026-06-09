@@ -84,6 +84,8 @@ def import_whoop(physio=None, journal=None, workouts=None, sleeps=None, wipe=Tru
                 _set(rec, "rhr", r.get("Resting heart rate (bpm)"))
                 _set(rec, "hrv", r.get("Heart rate variability (ms)"))
                 _set(rec, "strain", r.get("Day Strain"))
+                # gasto energético total del día (ya viene en kcal en el CSV)
+                _set(rec, "calories_burned", r.get("Energy burned (cal)"))
                 asleep = _num(r.get("Asleep duration (min)"))
                 if asleep is not None:
                     rec["sleep_hours"] = round(asleep / 60, 2)
