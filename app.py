@@ -383,6 +383,8 @@ with log_col:
         saved = st.form_submit_button("💾 Guardar", width="stretch")
 
 with cal_col:
+    # Espacio arriba para que el calendario baje y quede a la altura del formulario.
+    st.markdown("<div style='height:5rem'></div>", unsafe_allow_html=True)
     _nofap = set()
     if not df.empty and "fap" in df.columns:
         _nofap = set(pd.to_datetime(df.loc[df["fap"] == 0, "date"]).dt.date)
