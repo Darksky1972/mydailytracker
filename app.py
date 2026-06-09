@@ -296,6 +296,13 @@ with log_col:
         fap = h2[1].checkbox("Fap", bool(day.get("fap")))
         agua = h2[2].checkbox("Beber agua (min 3 botellas)", bool(day.get("beber_agua")))
 
+        with st.expander("➕ Mostrar más"):
+            m = st.columns(3)
+            cafeina = m[0].checkbox("Cafeína", bool(day.get("cafeina")))
+            alcohol = m[1].checkbox("Alcohol", bool(day.get("alcohol")))
+            restaurante = m[2].checkbox("Comer en restaurante",
+                                        bool(day.get("comer_restaurante")))
+
         n1, n2, n3 = st.columns(3)
         japones = n1.slider("Japonés (min)", 0, 120,
                             min(int(default(day, "japones_min", 0)), 120))
@@ -348,6 +355,9 @@ if saved:
         "leer": int(leer),
         "fap": int(fap),
         "beber_agua": int(agua),
+        "cafeina": int(cafeina),
+        "alcohol": int(alcohol),
+        "comer_restaurante": int(restaurante),
         "japones_min": int(japones),
         "pantalla_noche_min": int(pantalla),
         "pasos": int(pasos),
