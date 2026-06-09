@@ -285,7 +285,10 @@ g[4].plotly_chart(ring(day.get("sleep_hours"), "Sueño (h)", 0, 9,
 # --- habit logger (izq.) + calendario NoFap (dcha.) ---
 log_col, cal_col = st.columns([0.62, 0.38])
 with log_col:
-    _hlabel = st.radio("Rellenar", ["Hoy", "Ayer"], horizontal=True,
+    st.markdown(
+        "<style>div[role='radiogroup'] label{font-size:1.15rem;font-weight:700;}</style>",
+        unsafe_allow_html=True)
+    _hlabel = st.radio("Rellenar", ["Ayer", "Hoy"], index=1, horizontal=True,
                        help="Cambia a «Ayer» si se te pasó registrar algún hábito.")
     habit_date = TODAY if _hlabel == "Hoy" else YESTERDAY
     hday = db.get_day(habit_date) or {}
