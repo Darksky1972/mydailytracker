@@ -168,35 +168,7 @@ with st.sidebar:
         db.clear_all()
         st.rerun()
 
-    st.divider()
-    st.subheader("Importar Whoop")
-    st.caption("Sube tu export de Whoop (uno o varios CSV). Sustituye los datos "
-               "actuales por los reales.")
-    up_phys = st.file_uploader("physiological_cycles.csv", type="csv", key="up_phys")
-    up_work = st.file_uploader("workouts.csv", type="csv", key="up_work")
-    up_jour = st.file_uploader("journal_entries.csv", type="csv", key="up_jour")
-    up_sleep = st.file_uploader("sleeps.csv", type="csv", key="up_sleep")
-    if st.button("⬆️ Importar CSV subidos", width="stretch"):
-        if not any([up_phys, up_work, up_jour, up_sleep]):
-            st.warning("Sube al menos un CSV primero.")
-        else:
-            s = whoop_import.import_whoop(up_phys, up_jour, up_work, up_sleep)
-            st.success(f"Importado: {s['days']} días, {s['workouts']} actividades.")
-            st.rerun()
-    if st.button("📂 Importar desde /data", width="stretch",
-                 help="Lee los CSV de Whoop guardados en la carpeta ./data"):
-        s = whoop_import.import_from_folder(DATA_DIR)
-        if not s:
-            st.warning("No encontré CSV de Whoop en ./data.")
-        else:
-            st.success(f"Importado: {s['days']} días, {s['workouts']} actividades.")
-            st.rerun()
-    st.caption("💾 Los datos se guardan en `senal.db` y persisten entre cambios. "
-               "Si dejas tus CSV en `./data`, se recargan solos cuando haga falta. "
-               "Al reimportar se conservan tus datos manuales (Japonés, Pantalla "
-               "noche, tareas).")
-
-    # --- Whoop API (Fase 1: conectar + verificar; el volcado vendrá después) ---
+    # --- Whoop API (conectar + sincronizar) ---
     st.divider()
     st.subheader("Whoop (API)")
     try:
@@ -254,6 +226,32 @@ with st.sidebar:
                                            secrets.token_urlsafe(16))
             st.link_button("🔗 Conectar con Whoop", _url, width="stretch")
             st.caption("Te lleva a Whoop para autorizar y vuelve aquí.")
+
+    st.divider()
+    st.subheader("Importar Whoop (CSV)")
+    st.caption("Alternativa manual: sube tu export de Whoop (uno o varios CSV).")
+    up_phys = st.file_uploader("physiological_cycles.csv", type="csv", key="up_phys")
+    up_work = st.file_uploader("workouts.csv", type="csv", key="up_work")
+    up_jour = st.file_uploader("journal_entries.csv", type="csv", key="up_jour")
+    up_sleep = st.file_uploader("sleeps.csv", type="csv", key="up_sleep")
+    if st.button("⬆️ Importar CSV subidos", width="stretch"):
+        if not any([up_phys, up_work, up_jour, up_sleep]):
+            st.warning("Sube al menos un CSV primero.")
+        else:
+            s = whoop_import.import_whoop(up_phys, up_jour, up_work, up_sleep)
+            st.success(f"Importado: {s['days']} días, {s['workouts']} actividades.")
+            st.rerun()
+    if st.button("📂 Importar desde /data", width="stretch",
+                 help="Lee los CSV de Whoop guardados en la carpeta ./data"):
+        s = whoop_import.import_from_folder(DATA_DIR)
+        if not s:
+            st.warning("No encontré CSV de Whoop en ./data.")
+        else:
+            st.success(f"Importado: {s['days']} días, {s['workouts']} actividades.")
+            st.rerun()
+    st.caption("💾 Los datos se guardan en `senal.db` y persisten entre cambios. "
+               "Al reimportar se conservan tus datos manuales (Japonés, Pantalla "
+               "noche, Pasos, tareas).")
 
 
 # ---------------------------------------------------------------------------
