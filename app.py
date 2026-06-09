@@ -222,17 +222,27 @@ with st.sidebar:
 
         if whoop_api.is_connected():
             st.success("✅ Conectado a Whoop")
-            if st.button("🔍 Probar conexión (ver qué llega)", width="stretch"):
+            _days = st.number_input("Días a sincronizar", 1, 730, 30, step=1,
+                                    help="La 1ª vez pon un número grande (p. ej. 365) "
+                                         "para traer histórico; luego 7-30 basta.")
+            if st.button("🔄 Sincronizar ahora", width="stretch"):
                 try:
                     _tok = whoop_api.access_token(_wsec["client_id"], _wsec["client_secret"])
-                    _data = whoop_api.fetch_recent(_tok, days=14)
-                    st.write({k: len(v) for k, v in _data.items()})
-                    for _k, _v in _data.items():
-                        if _v:
-                            st.caption(f"Ejemplo · {_k}:")
-                            st.json(_v[0], expanded=False)
+                    _res = whoop_api.sync(_tok, days=int(_days))
+                    st.success(f"Sincronizado: {_res['dias']} días, "
+                               f"{_res['workouts']} actividades.")
+                    st.rerun()
                 except Exception as e:
-                    st.error(f"Error al consultar: {e}")
+                    st.error(f"Error al sincronizar: {e}")
+            with st.expander("🔍 Ver datos en crudo (depurar)"):
+                if st.button("Probar conexión", key="whoop_probe", width="stretch"):
+                    try:
+                        _tok = whoop_api.access_token(_wsec["client_id"],
+                                                      _wsec["client_secret"])
+                        _data = whoop_api.fetch_recent(_tok, days=14)
+                        st.write({k: len(v) for k, v in _data.items()})
+                    except Exception as e:
+                        st.error(f"Error: {e}")
             if st.button("Desconectar Whoop", width="stretch"):
                 whoop_api.disconnect()
                 st.rerun()

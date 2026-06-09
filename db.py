@@ -232,6 +232,13 @@ def clear_workouts():
         conn.execute("DELETE FROM workouts")
 
 
+def delete_workouts_on(day_date):
+    """Borra los workouts de UN día (para resincronizar solo esa fecha sin tocar
+    el resto del historial)."""
+    with _conn() as conn:
+        conn.execute("DELETE FROM workouts WHERE date=?", (day_date,))
+
+
 # --- workouts --------------------------------------------------------------
 def insert_workout(values):
     cols = [c for c in WORKOUT_COLUMNS if c in values]

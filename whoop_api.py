@@ -9,6 +9,7 @@ vez. Las credenciales (client_id/secret/redirect_uri) viven en
 El mapeo a los campos de Señal y el volcado a la BD se añadirán (Fase 2) cuando
 verifiquemos la estructura real de las respuestas con "Probar conexión".
 """
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
@@ -102,8 +103,8 @@ def _get_all(path, token, start=None, end=None, limit=25, max_pages=60):
     return out
 
 
-def fetch_recent(token, days=14):
-    """Trae los datos recientes EN CRUDO de los 4 endpoints (para inspección)."""
+def fetch_recent(token, days=30):
+    """Trae los datos recientes EN CRUDO de los 4 endpoints."""
     start = (datetime.now(timezone.utc) - timedelta(days=days)
              ).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     return {
@@ -112,3 +113,157 @@ def fetch_recent(token, days=14):
         "sleeps": _get_all("/activity/sleep", token, start=start),
         "workouts": _get_all("/activity/workout", token, start=start),
     }
+
+
+# --- mapeo de la API al modelo de Señal (mismo dateado que el import de CSV) ---
+def _num(v):
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return None if f != f else f          # descarta NaN
+
+
+def _set(rec, key, val):
+    n = _num(val)
+    if n is not None:
+        rec[key] = n
+
+
+def _local(ts, offset):
+    """ISO en UTC ('...Z') + offset ('+02:00') -> datetime en hora local."""
+    if not ts:
+        return None
+    dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    off = offset or "+00:00"
+    sign = -1 if off.startswith("-") else 1
+    tz = timezone(sign * timedelta(hours=int(off[1:3]), minutes=int(off[4:6])))
+    return dt.astimezone(tz)
+
+
+def _bed_day(dt):
+    """Día al que pertenece la hora de dormir (regla del mediodía: antes de las
+    12:00 cuenta como el día anterior)."""
+    d = dt.date()
+    if dt.hour < 12:
+        d -= timedelta(days=1)
+    return d.isoformat()
+
+
+def _build(data):
+    """Convierte las respuestas crudas en {fecha: campos} + filas de workout.
+
+    Alineación (igual que el import de CSV): recovery/strain/sueño -> fecha de
+    DESPERTAR (fin del sueño); hora de dormir -> día en que te acostaste;
+    workouts/siestas -> su propia fecha de inicio.
+    """
+    by_date = defaultdict(dict)
+    sleeps_by_id = {s.get("id"): s for s in data.get("sleeps", [])}
+    cycles_by_id = {c.get("id"): c for c in data.get("cycles", [])}
+
+    for rec in data.get("recoveries", []):
+        slp = sleeps_by_id.get(rec.get("sleep_id"))
+        if not slp:
+            continue
+        off = slp.get("timezone_offset")
+        wake = _local(slp.get("end"), off)
+        if wake is None:
+            continue
+        r = by_date[wake.date().isoformat()]
+        sc = rec.get("score") or {}
+        _set(r, "recovery", sc.get("recovery_score"))
+        _set(r, "rhr", sc.get("resting_heart_rate"))
+        _set(r, "hrv", sc.get("hrv_rmssd_milli"))
+        _set(r, "spo2", sc.get("spo2_percentage"))
+        _set(r, "skin_temp", sc.get("skin_temp_celsius"))
+        cyc = cycles_by_id.get(rec.get("cycle_id"))
+        if cyc:
+            _set(r, "strain", (cyc.get("score") or {}).get("strain"))
+        ssc = slp.get("score") or {}
+        stg = ssc.get("stage_summary") or {}
+        asleep = ((stg.get("total_light_sleep_time_milli") or 0)
+                  + (stg.get("total_slow_wave_sleep_time_milli") or 0)
+                  + (stg.get("total_rem_sleep_time_milli") or 0))
+        if asleep:
+            r["sleep_hours"] = round(asleep / 3600000, 2)
+        _set(r, "sleep_performance", ssc.get("sleep_performance_percentage"))
+        _set(r, "resp_rate", ssc.get("respiratory_rate"))
+        onset = _local(slp.get("start"), off)
+        if onset is not None:
+            clock = onset.strftime("%H:%M")
+            bd = by_date[_bed_day(onset)]
+            bd["hora_dormir"] = clock
+            bd["hora_dormir_num"] = db.bedtime_to_num(clock)
+
+    for slp in data.get("sleeps", []):
+        if slp.get("nap"):
+            onset = _local(slp.get("start"), slp.get("timezone_offset"))
+            if onset is not None:
+                by_date[onset.date().isoformat()]["siesta"] = 1
+
+    agg = defaultdict(lambda: {"min": 0.0, "cal": 0.0, "hr_sum": 0.0, "max": 0.0,
+                               "z": [0.0] * 5, "acts": [], "count": 0,
+                               "morning": False})
+    workout_rows = []
+    for w in data.get("workouts", []):
+        off = w.get("timezone_offset")
+        ws = _local(w.get("start"), off)
+        we = _local(w.get("end"), off)
+        if ws is None:
+            continue
+        d = ws.date().isoformat()
+        dur = round((we - ws).total_seconds() / 60, 1) if we else 0.0
+        sc = w.get("score") or {}
+        zd = sc.get("zone_durations") or {}
+        zmin = [round((zd.get(f"zone_{n}_milli") or 0) / 60000, 1)
+                for n in ("one", "two", "three", "four", "five")]
+        cal = (_num(sc.get("kilojoule")) or 0.0) / 4.184       # kJ -> kcal
+        avg = _num(sc.get("average_heart_rate")) or 0.0
+        name = (w.get("sport_name") or "").strip()
+        a = agg[d]
+        a["min"] += dur
+        a["cal"] += cal
+        a["hr_sum"] += avg * dur
+        a["max"] = max(a["max"], _num(sc.get("max_heart_rate")) or 0.0)
+        a["count"] += 1
+        a["morning"] = a["morning"] or ws.hour < 12
+        for i in range(5):
+            a["z"][i] += zmin[i]
+        if name and name not in a["acts"]:
+            a["acts"].append(name)
+        workout_rows.append({
+            "date": d, "start": ws.strftime("%H:%M"), "activity": name,
+            "duration_min": dur, "calories": round(cal) if cal else None,
+            "avg_hr": avg or None, "max_hr": _num(sc.get("max_heart_rate")),
+            "strain": _num(sc.get("strain")),
+            **{f"z{i+1}_min": zmin[i] for i in range(5)},
+        })
+    for d, a in agg.items():
+        r = by_date[d]
+        r["workout_min"] = round(a["min"], 1)
+        r["workout_calories"] = round(a["cal"])
+        r["workout_avg_hr"] = round(a["hr_sum"] / a["min"]) if a["min"] else None
+        r["workout_max_hr"] = a["max"] or None
+        r["workout_count"] = a["count"]
+        r["entreno_manana"] = int(a["morning"])
+        r["activities"] = ", ".join(a["acts"])
+        for i in range(5):
+            r[f"hr_zone{i+1}_min"] = round(a["z"][i], 1)
+
+    return by_date, workout_rows
+
+
+def sync(token, days=30):
+    """Descarga los últimos `days` días y los vuelca a la BD (FUSIÓN: no borra
+    el historial ni tus campos manuales; solo reescribe los workouts de las
+    fechas sincronizadas para no duplicar)."""
+    by_date, workout_rows = _build(fetch_recent(token, days))
+    db.set_meta("seeded", "1")
+    db.set_meta("data_source", "whoop")
+    for d in {w["date"] for w in workout_rows}:
+        db.delete_workouts_on(d)
+    for w in workout_rows:
+        db.insert_workout(w)
+    for d, rec in by_date.items():
+        db.upsert_day(d, rec)
+    return {"dias": len(by_date), "workouts": len(workout_rows)}
