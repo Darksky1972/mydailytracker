@@ -560,25 +560,26 @@ with cal_main:
                 db.delete_meal(m["id"])
                 st.rerun()
 
-        # Totales del día + balance contra lo quemado (Whoop).
+        # Estadísticas del día en una sola línea: diferencia · quemadas ·
+        # consumidas · macros.
         tot = db.meals_totals(meal_date)
         mday = db.get_day(meal_date) or {}
         burned = mday.get("calories_burned")
-        t1, t2, t3, t4 = st.columns(4)
-        t1.metric("Consumidas", f"{tot['kcal']:.0f} kcal")
-        t2.metric("Proteínas", f"{tot['protein']:.0f} g")
-        t3.metric("Carbohidratos", f"{tot['carbs']:.0f} g")
-        t4.metric("Grasas", f"{tot['fat']:.0f} g")
+        s = st.columns(6)
         if burned:
             diff = burned - tot["kcal"]
-            b1, b2, b3 = st.columns(3)
-            b1.metric("Quemadas (Whoop)", f"{burned:.0f} kcal")
-            b2.metric("Consumidas", f"{tot['kcal']:.0f} kcal")
-            b3.metric(
-                "Diferencia", f"{diff:+.0f} kcal",
-                delta="déficit" if diff >= 0 else "superávit", delta_color="off",
-                help="Quemadas − consumidas. Positivo = déficit (gastas más de lo que comes).")
+            s[0].metric("Diferencia", f"{diff:+.0f} kcal",
+                        delta="déficit" if diff >= 0 else "superávit", delta_color="off",
+                        help="Quemadas − consumidas. Positivo = déficit (gastas más de lo que comes).")
+            s[1].metric("Quemadas", f"{burned:.0f} kcal", help="De Whoop (gasto total del día).")
         else:
+            s[0].metric("Diferencia", "—", help="Necesita el dato de calorías quemadas de Whoop.")
+            s[1].metric("Quemadas", "—", help="De Whoop (gasto total del día).")
+        s[2].metric("Consumidas", f"{tot['kcal']:.0f} kcal")
+        s[3].metric("Proteínas", f"{tot['protein']:.0f} g")
+        s[4].metric("Carbohidratos", f"{tot['carbs']:.0f} g")
+        s[5].metric("Grasas", f"{tot['fat']:.0f} g")
+        if not burned:
             st.caption("Sin dato de calorías quemadas de Whoop para este día. "
                        "Sincroniza Whoop (o reimporta los CSV) para ver el balance.")
 
@@ -632,7 +633,7 @@ with cal_main:
 with cal_cal:
     # Espacio arriba para que el calendario baje y quede a la altura del contenido
     # de las pestañas (no pegado a la barra de pestañas).
-    st.markdown("<div style='height:2.6rem'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:5rem'></div>", unsafe_allow_html=True)
     # Mes mostrado = actual + offset (≤ 0; no se permite ir al futuro).
     _coff = st.session_state.get("cal_offset", 0)
     _cbase = date.today().replace(day=1)
