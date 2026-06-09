@@ -51,6 +51,26 @@ def fmt_num(x):
     return f"{(x or 0):.1f}".rstrip("0").rstrip(".")
 
 
+def render_avg_block(title, rows):
+    """Muestra la media de quemadas/consumidas/diferencia (en kcal) de una lista de
+    tuplas (quemadas, consumidas). `rows` ya viene filtrada a días con ambos datos."""
+    st.markdown(f"**{title}**")
+    if not rows:
+        st.caption("Aún no hay días con comidas y dato de Whoop.")
+        return
+    n = len(rows)
+    ab = sum(b for b, _ in rows) / n
+    ac = sum(c for _, c in rows) / n
+    ad = ab - ac
+    cols = st.columns(3)
+    cols[0].metric("Quemadas", f"{ab:.0f}")
+    cols[1].metric("Consumidas", f"{ac:.0f}")
+    cols[2].metric("Diferencia", f"{ad:+.0f}",
+                   delta="déficit" if ad >= 0 else "superávit", delta_color="off")
+    st.caption(f"Sobre {n} día{'s' if n != 1 else ''} con comidas y dato de Whoop. "
+               "En kcal.")
+
+
 # Prioridad de tareas (el número es el peso: la barra de completadas pondera por él).
 PRIO_ORDER = [3, 2, 1]                                    # alta → baja (orden del selector)
 PRIO_LABELS = {3: "🔴 Alta", 2: "🟡 Media", 1: "🟢 Baja"}
@@ -687,24 +707,11 @@ with cal_cal:
     st.caption("🟢 déficit > 200 · 🟡 entre −200 y 200 · 🔴 superávit > 200 kcal. "
                "Solo se colorean los días con comidas y dato de Whoop.")
 
-    # Medias del último mes (solo días con comidas y dato de Whoop).
+    # Medias: último mes y global (solo días con comidas y dato de Whoop).
     _recent = [(b, c) for (do, b, c) in cal_rows
                if do >= date.today() - timedelta(days=30)]
-    st.markdown("**Media · últimos 30 días**")
-    if _recent:
-        _n = len(_recent)
-        _avg_b = sum(b for b, _ in _recent) / _n
-        _avg_c = sum(c for _, c in _recent) / _n
-        _avg_d = _avg_b - _avg_c
-        am = st.columns(3)
-        am[0].metric("Quemadas", f"{_avg_b:.0f}")
-        am[1].metric("Consumidas", f"{_avg_c:.0f}")
-        am[2].metric("Diferencia", f"{_avg_d:+.0f}",
-                     delta="déficit" if _avg_d >= 0 else "superávit", delta_color="off")
-        st.caption(f"Sobre {_n} día{'s' if _n != 1 else ''} con comidas y dato de "
-                   "Whoop. En kcal.")
-    else:
-        st.caption("Aún no hay días con comidas y dato de Whoop en el último mes.")
+    render_avg_block("Media · últimos 30 días", _recent)
+    render_avg_block("Media · global", [(b, c) for (_, b, c) in cal_rows])
 
 
 # --- Actividad de hoy (workouts importados de Whoop) ---
