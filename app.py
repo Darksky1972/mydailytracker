@@ -32,6 +32,7 @@ if db.get_meta("seeded") != "1":
 
 TODAY = date.today().isoformat()
 TOMORROW = (date.today() + timedelta(days=1)).isoformat()
+YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
 
 
 def label(v):
@@ -264,6 +265,7 @@ st.header("Hoy")
 st.subheader(TODAY)
 
 day = db.get_day(TODAY) or {}
+yday = db.get_day(YESTERDAY) or {}   # para el Strain de ayer (valor ya cerrado)
 # Todos los días, cargados una sola vez (para el calendario NoFap y el análisis).
 df = db.load_days_df()
 
@@ -273,7 +275,7 @@ g[0].plotly_chart(ring(day.get("recovery"), "Recovery", 0, 100,
                        _band_color(day.get("recovery"), 67, 34)), width="stretch")
 g[1].plotly_chart(ring(day.get("hrv"), "HRV (ms)", 20, 60,
                        _band_color(day.get("hrv"), 47, 33)), width="stretch")
-g[2].plotly_chart(ring(day.get("strain"), "Strain", 0, 21, STRAIN_COLOR,
+g[2].plotly_chart(ring(yday.get("strain"), "Strain (ayer)", 0, 21, STRAIN_COLOR,
                        decimals=1), width="stretch")
 g[3].plotly_chart(ring(day.get("rhr"), "RHR (ppm)", 100, 50,
                        _band_color(day.get("rhr"), 65, 75, higher_better=False)), width="stretch")
