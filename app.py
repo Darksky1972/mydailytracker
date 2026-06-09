@@ -384,7 +384,7 @@ with log_col:
 
 with cal_col:
     # Espacio arriba para que el calendario baje y quede a la altura del formulario.
-    st.markdown("<div style='height:5rem'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:6rem'></div>", unsafe_allow_html=True)
     _nofap = set()
     if not df.empty and "fap" in df.columns:
         _nofap = set(pd.to_datetime(df.loc[df["fap"] == 0, "date"]).dt.date)
@@ -496,13 +496,19 @@ with manana_col:
 # --- Calorías / nutrición --------------------------------------------------
 st.markdown("### 🍽️ Calorías")
 # Balance por día (quemadas − consumidas) para colorear el calendario de la dcha.
+# cal_rows guarda (fecha, quemadas, consumidas) SOLO de días con ambos datos, para
+# poder calcular medias del último mes ignorando los días faltantes.
 _meals_by_day = db.meals_by_day()
 cal_diffs = {}
+cal_rows = []
 for _d, _v in _meals_by_day.items():
     _dd = db.get_day(_d) or {}
     _bd = _dd.get("calories_burned")
+    _cons = _v.get("kcal") or 0
     if _bd:
-        cal_diffs[date.fromisoformat(_d)] = _bd - (_v.get("kcal") or 0)
+        _do = date.fromisoformat(_d)
+        cal_diffs[_do] = _bd - _cons
+        cal_rows.append((_do, _bd, _cons))
 
 cal_main, cal_cal = st.columns([0.62, 0.38])
 
@@ -680,6 +686,25 @@ with cal_cal:
                 unsafe_allow_html=True)
     st.caption("🟢 déficit > 200 · 🟡 entre −200 y 200 · 🔴 superávit > 200 kcal. "
                "Solo se colorean los días con comidas y dato de Whoop.")
+
+    # Medias del último mes (solo días con comidas y dato de Whoop).
+    _recent = [(b, c) for (do, b, c) in cal_rows
+               if do >= date.today() - timedelta(days=30)]
+    st.markdown("**Media · últimos 30 días**")
+    if _recent:
+        _n = len(_recent)
+        _avg_b = sum(b for b, _ in _recent) / _n
+        _avg_c = sum(c for _, c in _recent) / _n
+        _avg_d = _avg_b - _avg_c
+        am = st.columns(3)
+        am[0].metric("Quemadas", f"{_avg_b:.0f}")
+        am[1].metric("Consumidas", f"{_avg_c:.0f}")
+        am[2].metric("Diferencia", f"{_avg_d:+.0f}",
+                     delta="déficit" if _avg_d >= 0 else "superávit", delta_color="off")
+        st.caption(f"Sobre {_n} día{'s' if _n != 1 else ''} con comidas y dato de "
+                   "Whoop. En kcal.")
+    else:
+        st.caption("Aún no hay días con comidas y dato de Whoop en el último mes.")
 
 
 # --- Actividad de hoy (workouts importados de Whoop) ---
