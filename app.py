@@ -46,6 +46,11 @@ def default(d, key, fallback):
     return fallback if val is None else val
 
 
+def fmt_num(x):
+    """Número sin decimales innecesarios: 500.0 → '500', 12.5 → '12.5'."""
+    return f"{(x or 0):.1f}".rstrip("0").rstrip(".")
+
+
 # Prioridad de tareas (el número es el peso: la barra de completadas pondera por él).
 PRIO_ORDER = [3, 2, 1]                                    # alta → baja (orden del selector)
 PRIO_LABELS = {3: "🔴 Alta", 2: "🟡 Media", 1: "🟢 Baja"}
@@ -514,7 +519,7 @@ with cal_main:
             pc1, pc2, pc3 = st.columns([0.5, 0.28, 0.22])
             _pick = pc1.selectbox(
                 "Añadir comida guardada", presets,
-                format_func=lambda p: f"{p['name']} · {(p['kcal'] or 0):.0f} kcal",
+                format_func=lambda p: f"{p['name']} · {fmt_num(p['kcal'])} kcal",
                 key="meal_preset_pick", index=None,
                 placeholder="Comida guardada…", label_visibility="collapsed")
             _pick_type = pc2.selectbox("Tipo", MEAL_TYPES, key="meal_preset_type",
@@ -531,10 +536,10 @@ with cal_main:
             m_name = mc[0].text_input("Comida", placeholder="p. ej. Pollo con arroz")
             m_type = mc[1].selectbox("Tipo de comida", MEAL_TYPES, key="meal_type_new")
             mn = st.columns(4)
-            m_kcal = mn[0].number_input("kcal", 0, 10000, step=50)
-            m_prot = mn[1].number_input("Prot (g)", 0, 1000, step=5)
-            m_carb = mn[2].number_input("Carbs (g)", 0, 1000, step=5)
-            m_fat = mn[3].number_input("Grasa (g)", 0, 1000, step=5)
+            m_kcal = mn[0].number_input("kcal", 0.0, 10000.0, step=50.0, format="%.1f")
+            m_prot = mn[1].number_input("Prot (g)", 0.0, 1000.0, step=5.0, format="%.1f")
+            m_carb = mn[2].number_input("Carbs (g)", 0.0, 1000.0, step=5.0, format="%.1f")
+            m_fat = mn[3].number_input("Grasa (g)", 0.0, 1000.0, step=5.0, format="%.1f")
             save_preset = st.checkbox("Guardar también como comida recurrente")
             if st.form_submit_button("➕ Añadir comida", width="stretch") and m_name.strip():
                 db.add_meal(meal_date, m_name.strip(), m_kcal, m_prot, m_carb, m_fat, m_type)
@@ -554,8 +559,8 @@ with cal_main:
                 _last_type = _t
             lc1, lc2, lc3 = st.columns([0.5, 0.42, 0.08])
             lc1.write(m["name"])
-            lc2.caption(f"{(m['kcal'] or 0):.0f} kcal · P {(m['protein'] or 0):.0f} · "
-                        f"C {(m['carbs'] or 0):.0f} · G {(m['fat'] or 0):.0f}")
+            lc2.caption(f"{fmt_num(m['kcal'])} kcal · P {fmt_num(m['protein'])} · "
+                        f"C {fmt_num(m['carbs'])} · G {fmt_num(m['fat'])}")
             if lc3.button("🗑️", key=f"del_meal_{m['id']}", help="Eliminar comida"):
                 db.delete_meal(m["id"])
                 st.rerun()
@@ -575,10 +580,10 @@ with cal_main:
         else:
             s[0].metric("Diferencia", "—", help="Necesita el dato de calorías quemadas de Whoop.")
             s[1].metric("Quemadas", "—", help="De Whoop (gasto total del día).")
-        s[2].metric("Consumidas", f"{tot['kcal']:.0f} kcal")
-        s[3].metric("Proteínas", f"{tot['protein']:.0f} g")
-        s[4].metric("Carbohidratos", f"{tot['carbs']:.0f} g")
-        s[5].metric("Grasas", f"{tot['fat']:.0f} g")
+        s[2].metric("Consumidas", f"{fmt_num(tot['kcal'])} kcal")
+        s[3].metric("Proteínas", f"{fmt_num(tot['protein'])} g")
+        s[4].metric("Carbohidratos", f"{fmt_num(tot['carbs'])} g")
+        s[5].metric("Grasas", f"{fmt_num(tot['fat'])} g")
         if not burned:
             st.caption("Sin dato de calorías quemadas de Whoop para este día. "
                        "Sincroniza Whoop (o reimporta los CSV) para ver el balance.")
@@ -610,10 +615,14 @@ with cal_main:
         with st.form("add_preset", clear_on_submit=True):
             dc = st.columns([0.4, 0.15, 0.15, 0.15, 0.15])
             d_name = dc[0].text_input("Comida", placeholder="p. ej. Tortilla francesa")
-            d_kcal = dc[1].number_input("kcal", 0, 10000, step=50, key="preset_kcal")
-            d_prot = dc[2].number_input("Prot (g)", 0, 1000, step=5, key="preset_prot")
-            d_carb = dc[3].number_input("Carbs (g)", 0, 1000, step=5, key="preset_carb")
-            d_fat = dc[4].number_input("Grasa (g)", 0, 1000, step=5, key="preset_fat")
+            d_kcal = dc[1].number_input("kcal", 0.0, 10000.0, step=50.0,
+                                        format="%.1f", key="preset_kcal")
+            d_prot = dc[2].number_input("Prot (g)", 0.0, 1000.0, step=5.0,
+                                        format="%.1f", key="preset_prot")
+            d_carb = dc[3].number_input("Carbs (g)", 0.0, 1000.0, step=5.0,
+                                        format="%.1f", key="preset_carb")
+            d_fat = dc[4].number_input("Grasa (g)", 0.0, 1000.0, step=5.0,
+                                       format="%.1f", key="preset_fat")
             if st.form_submit_button("💾 Guardar comida", width="stretch") and d_name.strip():
                 db.add_meal_preset(d_name.strip(), d_kcal, d_prot, d_carb, d_fat)
                 st.rerun()
@@ -624,8 +633,8 @@ with cal_main:
         for p in pres:
             gc1, gc2, gc3 = st.columns([0.5, 0.42, 0.08])
             gc1.write(f"**{p['name']}**")
-            gc2.caption(f"{(p['kcal'] or 0):.0f} kcal · P {(p['protein'] or 0):.0f} · "
-                        f"C {(p['carbs'] or 0):.0f} · G {(p['fat'] or 0):.0f}")
+            gc2.caption(f"{fmt_num(p['kcal'])} kcal · P {fmt_num(p['protein'])} · "
+                        f"C {fmt_num(p['carbs'])} · G {fmt_num(p['fat'])}")
             if gc3.button("🗑️", key=f"del_preset_{p['id']}", help="Eliminar comida guardada"):
                 db.delete_meal_preset(p["id"])
                 st.rerun()
