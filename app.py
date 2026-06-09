@@ -3,6 +3,7 @@
 Run with:  streamlit run app.py
 """
 import calendar
+import secrets
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -13,6 +14,7 @@ import streamlit as st
 
 import analysis
 import db
+import whoop_api
 import whoop_import
 
 st.set_page_config(page_title="Señal", page_icon="📡", layout="wide")
@@ -193,6 +195,52 @@ with st.sidebar:
                "Si dejas tus CSV en `./data`, se recargan solos cuando haga falta. "
                "Al reimportar se conservan tus datos manuales (Japonés, Pantalla "
                "noche, tareas).")
+
+    # --- Whoop API (Fase 1: conectar + verificar; el volcado vendrá después) ---
+    st.divider()
+    st.subheader("Whoop (API)")
+    try:
+        _wsec = dict(st.secrets["whoop"])
+    except Exception:
+        _wsec = None
+
+    if not _wsec:
+        st.caption("Aún sin configurar. Pon tus credenciales en "
+                   "`.streamlit/secrets.toml` (sección `[whoop]`) para conectar.")
+    else:
+        # ¿Volvemos de autorizar? Whoop redirige con ?code=...
+        _code = st.query_params.get("code")
+        if _code and not whoop_api.is_connected():
+            try:
+                whoop_api.exchange_code(_code, _wsec["client_id"],
+                                        _wsec["client_secret"], _wsec["redirect_uri"])
+                st.query_params.clear()
+                st.success("✅ Whoop conectado.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"No se pudo conectar: {e}")
+
+        if whoop_api.is_connected():
+            st.success("✅ Conectado a Whoop")
+            if st.button("🔍 Probar conexión (ver qué llega)", width="stretch"):
+                try:
+                    _tok = whoop_api.access_token(_wsec["client_id"], _wsec["client_secret"])
+                    _data = whoop_api.fetch_recent(_tok, days=14)
+                    st.write({k: len(v) for k, v in _data.items()})
+                    for _k, _v in _data.items():
+                        if _v:
+                            st.caption(f"Ejemplo · {_k}:")
+                            st.json(_v[0], expanded=False)
+                except Exception as e:
+                    st.error(f"Error al consultar: {e}")
+            if st.button("Desconectar Whoop", width="stretch"):
+                whoop_api.disconnect()
+                st.rerun()
+        else:
+            _url = whoop_api.authorize_url(_wsec["client_id"], _wsec["redirect_uri"],
+                                           secrets.token_urlsafe(16))
+            st.link_button("🔗 Conectar con Whoop", _url, width="stretch")
+            st.caption("Te lleva a Whoop para autorizar y vuelve aquí.")
 
 
 # ---------------------------------------------------------------------------
