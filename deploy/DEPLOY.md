@@ -186,6 +186,26 @@ scp -r root@IP_DE_TU_VPS:/opt/senal/backups "$base\backups_vps"
 
 ---
 
+## PASO 8 (opcional) — Sincronización automática con Whoop (cron)
+Requiere haber **conectado Whoop una vez desde la web** (guarda el refresh token)
+y tener `/opt/senal/.streamlit/secrets.toml` con la sección `[whoop]`.
+
+Prueba el sync a mano (☁️ EN LA VPS, como el usuario `senal`):
+```bash
+sudo -u senal /opt/senal/.venv/bin/python /opt/senal/whoop_sync.py 7
+```
+Si imprime `OK: N días, M actividades`, programa el cron diario a las 8:30
+(hora de Madrid):
+```bash
+cat > /etc/cron.d/senal-whoop <<'EOF'
+CRON_TZ=Europe/Madrid
+30 8 * * * senal cd /opt/senal && /opt/senal/.venv/bin/python /opt/senal/whoop_sync.py >> /opt/senal/whoop_sync.log 2>&1
+EOF
+echo "Sync de Whoop programado a las 08:30. Log en /opt/senal/whoop_sync.log"
+```
+
+---
+
 ## Uso del día a día (todo ☁️ EN LA VPS, tras conectar con `ssh root@IP_DE_TU_VPS`)
 
 **¿Está funcionando? / ver errores:**

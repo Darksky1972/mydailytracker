@@ -8,6 +8,7 @@ backups/
 # --- Entornos / cachés ---
 __pycache__/
 *.pyc
+*.log
 .venv/
 venv/
 .streamlit/

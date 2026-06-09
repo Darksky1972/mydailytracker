@@ -222,6 +222,9 @@ with st.sidebar:
 
         if whoop_api.is_connected():
             st.success("✅ Conectado a Whoop")
+            _last = db.get_meta("whoop_last_sync")
+            if _last:
+                st.caption(f"Última sincronización: {_last}")
             _days = st.number_input("Días a sincronizar", 1, 730, 30, step=1,
                                     help="La 1ª vez pon un número grande (p. ej. 365) "
                                          "para traer histórico; luego 7-30 basta.")

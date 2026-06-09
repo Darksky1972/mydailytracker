@@ -266,4 +266,5 @@ def sync(token, days=30):
         db.insert_workout(w)
     for d, rec in by_date.items():
         db.upsert_day(d, rec)
+    db.set_meta("whoop_last_sync", datetime.now().strftime("%Y-%m-%d %H:%M"))
     return {"dias": len(by_date), "workouts": len(workout_rows)}
