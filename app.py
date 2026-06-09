@@ -285,39 +285,50 @@ g[4].plotly_chart(ring(day.get("sleep_hours"), "Sueño (h)", 0, 9,
 # --- habit logger (izq.) + calendario NoFap (dcha.) ---
 log_col, cal_col = st.columns([0.62, 0.38])
 with log_col:
+    _hlabel = st.radio("Rellenar", ["Hoy", "Ayer"], horizontal=True,
+                       help="Cambia a «Ayer» si se te pasó registrar algún hábito.")
+    habit_date = TODAY if _hlabel == "Hoy" else YESTERDAY
+    hday = db.get_day(habit_date) or {}
+    _k = habit_date   # sufijo de las keys: al cambiar de día, recarga los valores
     with st.form("logger"):
-        st.markdown("**Hábitos**")
+        st.markdown(f"**Hábitos · {habit_date}**")
         h = st.columns(3)
-        entreno = h[0].checkbox("Entreno mañana", bool(day.get("entreno_manana")))
-        estir = h[1].checkbox("Estiramientos", bool(day.get("estiramientos")))
-        journ = h[2].checkbox("Journaling", bool(day.get("journaling")))
+        entreno = h[0].checkbox("Entreno mañana", bool(hday.get("entreno_manana")),
+                                key=f"hb_entreno_{_k}")
+        estir = h[1].checkbox("Estiramientos", bool(hday.get("estiramientos")),
+                              key=f"hb_estir_{_k}")
+        journ = h[2].checkbox("Journaling", bool(hday.get("journaling")),
+                              key=f"hb_journ_{_k}")
         h2 = st.columns(3)
-        leer = h2[0].checkbox("Leer en cama", bool(day.get("leer")))
-        fap = h2[1].checkbox("Fap", bool(day.get("fap")))
-        agua = h2[2].checkbox("Beber agua (min 3 botellas)", bool(day.get("beber_agua")))
+        leer = h2[0].checkbox("Leer en cama", bool(hday.get("leer")), key=f"hb_leer_{_k}")
+        fap = h2[1].checkbox("Fap", bool(hday.get("fap")), key=f"hb_fap_{_k}")
+        agua = h2[2].checkbox("Beber agua (min 3 botellas)", bool(hday.get("beber_agua")),
+                              key=f"hb_agua_{_k}")
 
         with st.expander("➕ Mostrar más"):
             m = st.columns(3)
-            cafeina = m[0].checkbox("Cafeína", bool(day.get("cafeina")))
-            alcohol = m[1].checkbox("Alcohol", bool(day.get("alcohol")))
+            cafeina = m[0].checkbox("Cafeína", bool(hday.get("cafeina")), key=f"hb_caf_{_k}")
+            alcohol = m[1].checkbox("Alcohol", bool(hday.get("alcohol")), key=f"hb_alc_{_k}")
             restaurante = m[2].checkbox("Comer en restaurante",
-                                        bool(day.get("comer_restaurante")))
+                                        bool(hday.get("comer_restaurante")),
+                                        key=f"hb_rest_{_k}")
 
         n1, n2, n3 = st.columns(3)
         japones = n1.slider("Japonés (min)", 0, 120,
-                            min(int(default(day, "japones_min", 0)), 120))
+                            min(int(default(hday, "japones_min", 0)), 120),
+                            key=f"hb_jap_{_k}")
         pantalla = n2.slider("Pantalla noche (min)", 0, 120,
-                             min(int(default(day, "pantalla_noche_min", 0)), 120),
-                             help="Minutos de pantalla de anoche. Como lo registras a "
-                                  "la mañana siguiente, en el análisis se desplaza como "
-                                  "una métrica de la noche anterior.")
+                             min(int(default(hday, "pantalla_noche_min", 0)), 120),
+                             key=f"hb_pan_{_k}",
+                             help="Minutos de pantalla de ESA noche. Si se te pasó, "
+                                  "cambia a «Ayer» y ponlo en el día que toca.")
         pasos = n3.number_input("Pasos", min_value=0, max_value=100000, step=500,
-                                value=int(default(day, "pasos", 0)),
-                                help="Pasos del día (los apuntas al día siguiente desde "
-                                     "la app de Whoop). En el análisis se desplazan como "
-                                     "una métrica del día anterior, igual que Pantalla noche.")
+                                value=int(default(hday, "pasos", 0)), key=f"hb_pasos_{_k}",
+                                help="Pasos del día. Los apuntas al día siguiente desde "
+                                     "la app de Whoop, así que en el análisis se desplazan "
+                                     "como una métrica del día anterior.")
 
-        saved = st.form_submit_button("💾 Guardar hoy", width="stretch")
+        saved = st.form_submit_button("💾 Guardar", width="stretch")
 
 with cal_col:
     _nofap = set()
@@ -348,7 +359,7 @@ with cal_col:
     st.caption(f"Días tachados = NoFap. En {_MONTHS_ES[_m - 1]}: {_n_month}.")
 
 if saved:
-    db.upsert_day(TODAY, {
+    db.upsert_day(habit_date, {
         "entreno_manana": int(entreno),
         "estiramientos": int(estir),
         "journaling": int(journ),
@@ -361,9 +372,9 @@ if saved:
         "japones_min": int(japones),
         "pantalla_noche_min": int(pantalla),
         "pasos": int(pasos),
-        "tareas_pct": db.tasks_pct(TODAY),
+        "tareas_pct": db.tasks_pct(habit_date),
     })
-    st.success("Día guardado ✅")
+    st.success(f"Guardado ({habit_date}) ✅")
 
 # --- tasks (hoy a la izq. · mañana a la dcha.) -----------------------------
 hoy_col, manana_col = st.columns(2)
@@ -501,9 +512,9 @@ lag = st.toggle(
     value=True,
     help="Recovery, HRV, RHR y sueño se miden por la mañana y reflejan la noche "
          "anterior, así que con el lag se emparejan hábito[día] con whoop[día+1]. "
-         "Pantalla noche y Pasos se registran al día siguiente, así que también se "
-         "desplazan. El Strain se acumula durante el día, así que SIEMPRE es del "
-         "mismo día (no se desplaza con el lag).",
+         "Pasos se registra al día siguiente, así que también se desplaza. El "
+         "Strain se acumula durante el día, así que SIEMPRE es del mismo día (no se "
+         "desplaza con el lag).",
 )
 
 cx, cy = st.columns(2)
