@@ -630,6 +630,9 @@ with cal_main:
                 st.rerun()
 
 with cal_cal:
+    # Espacio arriba para que el calendario baje y quede a la altura del contenido
+    # de las pestañas (no pegado a la barra de pestañas).
+    st.markdown("<div style='height:2.6rem'></div>", unsafe_allow_html=True)
     # Mes mostrado = actual + offset (≤ 0; no se permite ir al futuro).
     _coff = st.session_state.get("cal_offset", 0)
     _cbase = date.today().replace(day=1)
