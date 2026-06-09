@@ -142,16 +142,17 @@ def init_db():
                 z1_min REAL, z2_min REAL, z3_min REAL, z4_min REAL, z5_min REAL
             )
         """)
-        # comidas registradas por día (calorías + macros)
+        # comidas registradas por día (calorías + macros + tipo de comida)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS meals (
-                id      INTEGER PRIMARY KEY AUTOINCREMENT,
-                date    TEXT NOT NULL,
-                name    TEXT NOT NULL,
-                kcal    REAL,
-                protein REAL,
-                carbs   REAL,
-                fat     REAL
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                date      TEXT NOT NULL,
+                name      TEXT NOT NULL,
+                kcal      REAL,
+                protein   REAL,
+                carbs     REAL,
+                fat       REAL,
+                meal_type TEXT
             )
         """)
         # "base de datos" de comidas recurrentes (plantillas reutilizables)
@@ -177,6 +178,10 @@ def init_db():
         task_cols = {row[1] for row in conn.execute("PRAGMA table_info(tasks)")}
         if "priority" not in task_cols:
             conn.execute("ALTER TABLE tasks ADD COLUMN priority INTEGER DEFAULT 2")
+        # migrate: older `meals` tables may lack the meal_type column.
+        meal_cols = {row[1] for row in conn.execute("PRAGMA table_info(meals)")}
+        if "meal_type" not in meal_cols:
+            conn.execute("ALTER TABLE meals ADD COLUMN meal_type TEXT")
 
 
 # --- meta ------------------------------------------------------------------
@@ -340,12 +345,12 @@ def get_meals(day_date):
     return [dict(r) for r in rows]
 
 
-def add_meal(day_date, name, kcal, protein=None, carbs=None, fat=None):
+def add_meal(day_date, name, kcal, protein=None, carbs=None, fat=None, meal_type=None):
     with _conn() as conn:
         conn.execute(
-            "INSERT INTO meals (date, name, kcal, protein, carbs, fat) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (day_date, name, kcal, protein, carbs, fat))
+            "INSERT INTO meals (date, name, kcal, protein, carbs, fat, meal_type) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (day_date, name, kcal, protein, carbs, fat, meal_type))
 
 
 def delete_meal(meal_id):
