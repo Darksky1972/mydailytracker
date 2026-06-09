@@ -512,8 +512,21 @@ with cal_main:
 
     # Registrar: añadir comidas (manual o desde plantilla) y ver el balance del día.
     with cal_reg:
-        meal_date = st.date_input("Día", value=date.today(), max_value=date.today(),
-                                  key="meal_date").isoformat()
+        # Día seleccionado mediante botones ◀ / ▶ (offset ≤ 0; no se va al futuro).
+        _moff = st.session_state.get("meal_day_offset", 0)
+        meal_date = (date.today() + timedelta(days=_moff)).isoformat()
+        dnav = st.columns([0.25, 0.5, 0.25])
+        if dnav[0].button("◀ Anterior", key="meal_prev", width="stretch"):
+            st.session_state.meal_day_offset = _moff - 1
+            st.rerun()
+        dnav[1].markdown(
+            f"<div style='text-align:center;font-weight:600;padding-top:0.45rem;'>"
+            f"{meal_date}{' · hoy' if _moff == 0 else ''}</div>",
+            unsafe_allow_html=True)
+        if dnav[2].button("Siguiente ▶", key="meal_next", width="stretch",
+                          disabled=_moff >= 0):
+            st.session_state.meal_day_offset = _moff + 1
+            st.rerun()
         presets = db.get_meal_presets()
 
         # Atajo: añadir una comida guardada con un clic, eligiendo su tipo.
