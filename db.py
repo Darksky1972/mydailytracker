@@ -29,10 +29,9 @@ WHOOP_VARS = ["recovery", "strain", "hrv", "rhr", "sleep_hours",
 # morning readings that reflect the previous night, so the lag toggle shifts them.
 SAMEDAY_WHOOP = ["strain"]
 LAGGED_WHOOP = [v for v in WHOOP_VARS if v not in SAMEDAY_WHOOP]
-# Campo manual que apuntas al DÍA SIGUIENTE (Pasos, desde la app de Whoop): el
-# valor es del día D-1, así que se desplaza con el lag como las lecturas de la
-# mañana. (Pantalla noche ya NO se desplaza: se registra en su día con Hoy/Ayer.)
-LAGGED_INPUTS = ["pasos"]
+# Ya no hay inputs manuales con lag: Pantalla noche y Pasos se registran en su día
+# real (con el selector Hoy/Ayer si se te pasó), así que no se desplazan.
+LAGGED_INPUTS = []
 # Everything that gets shifted when the lag toggle is on:
 LAGGED_VARS = LAGGED_WHOOP + LAGGED_INPUTS
 

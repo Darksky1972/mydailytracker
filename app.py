@@ -324,9 +324,8 @@ with log_col:
                                   "cambia a «Ayer» y ponlo en el día que toca.")
         pasos = n3.number_input("Pasos", min_value=0, max_value=100000, step=500,
                                 value=int(default(hday, "pasos", 0)), key=f"hb_pasos_{_k}",
-                                help="Pasos del día. Los apuntas al día siguiente desde "
-                                     "la app de Whoop, así que en el análisis se desplazan "
-                                     "como una métrica del día anterior.")
+                                help="Pasos del día. Apúntalos en su día (usa «Ayer» si "
+                                     "los miras a la mañana siguiente desde la app de Whoop).")
 
         saved = st.form_submit_button("💾 Guardar", width="stretch")
 
@@ -512,9 +511,9 @@ lag = st.toggle(
     value=True,
     help="Recovery, HRV, RHR y sueño se miden por la mañana y reflejan la noche "
          "anterior, así que con el lag se emparejan hábito[día] con whoop[día+1]. "
-         "Pasos se registra al día siguiente, así que también se desplaza. El "
-         "Strain se acumula durante el día, así que SIEMPRE es del mismo día (no se "
-         "desplaza con el lag).",
+         "El Strain se acumula durante el día, así que SIEMPRE es del mismo día (no "
+         "se desplaza con el lag). Los datos manuales (incl. Pantalla noche y Pasos) "
+         "se registran en su día real, así que tampoco se desplazan.",
 )
 
 cx, cy = st.columns(2)
