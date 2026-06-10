@@ -15,13 +15,27 @@ import os
 from datetime import date, timedelta
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 import db
 
 HOST = os.environ.get("MCP_HOST", "127.0.0.1")
 PORT = int(os.environ.get("MCP_PORT", "8765"))
 
-mcp = FastMCP("Daily Tracker", host=HOST, port=PORT)
+# Detrás de nginx, la cabecera Host llega como tu dominio y la protección anti
+# DNS-rebinding de MCP lo rechazaría con 421. nginx (con token) es ya la frontera
+# de seguridad y solo 127.0.0.1 llega hasta aquí, así que la desactivamos. Si
+# prefieres mantenerla, pon MCP_ALLOWED_HOST=tudominio.com en el servicio.
+_allowed = os.environ.get("MCP_ALLOWED_HOST", "").strip()
+if _allowed:
+    _security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[_allowed, f"{HOST}:{PORT}", "127.0.0.1", "localhost"],
+        allowed_origins=[f"https://{_allowed}", f"http://{_allowed}"])
+else:
+    _security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+
+mcp = FastMCP("Daily Tracker", host=HOST, port=PORT, transport_security=_security)
 
 _PRIO = {3: "alta", 2: "media", 1: "baja"}
 
