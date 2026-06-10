@@ -67,8 +67,8 @@ def render_avg_block(title, rows):
     cols[1].metric("Consumidas", f"{ac:.0f}")
     cols[2].metric("Diferencia", f"{ad:+.0f}",
                    delta="déficit" if ad >= 0 else "superávit", delta_color="off")
-    st.caption(f"Sobre {n} día{'s' if n != 1 else ''} con comidas y dato de Whoop. "
-               "En kcal.")
+    st.caption(f"Sobre {n} día{'s' if n != 1 else ''} con comidas y dato de Whoop "
+               "(sin contar hoy). En kcal.")
 
 
 # Prioridad de tareas (el número es el peso: la barra de completadas pondera por él).
@@ -548,6 +548,9 @@ for _d, _v in _meals_by_day.items():
         _do = date.fromisoformat(_d)
         cal_diffs[_do] = _bd - _cons
         cal_rows.append((_do, _bd, _cons))
+# Para las MEDIAS ignoramos hoy: aún no tiene todas las comidas registradas y
+# falsearía el resultado. El gráfico y el calendario sí siguen mostrando hoy.
+cal_rows_avg = [r for r in cal_rows if r[0] != date.today()]
 
 cal_main, cal_cal = st.columns([0.62, 0.38])
 
@@ -724,15 +727,16 @@ with cal_main:
                         ev_fig.add_vline(x=i + 0.5, line=dict(
                             color="rgba(150,150,150,0.6)", width=1, dash="dot"))
                 # Línea horizontal: punto medio entre las medias globales de quemadas
-                # y consumidas (sobre TODO el histórico con ambos datos).
-                _gb = sum(b for _, b, _ in cal_rows) / len(cal_rows)
-                _gc = sum(c for _, _, c in cal_rows) / len(cal_rows)
-                _mid = (_gb + _gc) / 2
-                ev_fig.add_hline(
-                    y=_mid, line=dict(color="rgba(150,150,150,0.9)", width=1.5, dash="dash"),
-                    annotation_text=f"Media global {_mid:.0f} kcal",
-                    annotation_position="top left",
-                    annotation_font=dict(color=_fg(), size=11))
+                # y consumidas (sobre TODO el histórico con ambos datos, sin contar hoy).
+                if cal_rows_avg:
+                    _gb = sum(b for _, b, _ in cal_rows_avg) / len(cal_rows_avg)
+                    _gc = sum(c for _, _, c in cal_rows_avg) / len(cal_rows_avg)
+                    _mid = (_gb + _gc) / 2
+                    ev_fig.add_hline(
+                        y=_mid, line=dict(color="rgba(150,150,150,0.9)", width=1.5, dash="dash"),
+                        annotation_text=f"Media global {_mid:.0f} kcal",
+                        annotation_position="top left",
+                        annotation_font=dict(color=_fg(), size=11))
                 ev_fig.update_layout(
                     height=360, margin=dict(l=10, r=10, t=80, b=60),
                     title={"text": "Evolución: quemadas vs consumidas", "x": 0.5,
@@ -810,11 +814,11 @@ with cal_cal:
                "Solo se colorean los días con comidas y dato de Whoop. "
                "Pincha un día para editar sus comidas.")
 
-    # Medias: último mes y global (solo días con comidas y dato de Whoop).
-    _recent = [(b, c) for (do, b, c) in cal_rows
+    # Medias: último mes y global (solo días con comidas y dato de Whoop, sin hoy).
+    _recent = [(b, c) for (do, b, c) in cal_rows_avg
                if do >= date.today() - timedelta(days=30)]
     render_avg_block("Media · últimos 30 días", _recent)
-    render_avg_block("Media · global", [(b, c) for (_, b, c) in cal_rows])
+    render_avg_block("Media · global", [(b, c) for (_, b, c) in cal_rows_avg])
 
 
 # --- Actividad de hoy (workouts importados de Whoop) ---
