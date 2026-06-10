@@ -668,6 +668,62 @@ with cal_main:
             st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
             st.caption("Diferencia = quemadas − consumidas. Positivo = déficit calórico.")
 
+            # Evolución: quemadas vs consumidas (solo días con ambos datos). El área
+            # entre las líneas se pinta verde si quemas más y rojo si comes más; los
+            # días sin datos se saltan y los huecos se marcan con una vertical.
+            ev = sorted(cal_rows)[-30:]
+            if len(ev) >= 2:
+                dates = [d for d, _, _ in ev]
+                xs = list(range(len(ev)))
+                burned_y = [b for _, b, _ in ev]
+                consumed_y = [c for _, _, c in ev]
+                up = [max(b, c) for b, c in zip(burned_y, consumed_y)]   # techo (verde)
+                lo = [min(b, c) for b, c in zip(burned_y, consumed_y)]   # suelo (rojo)
+                ev_fig = go.Figure()
+                # Verde entre consumidas y max(.): solo donde quemadas > consumidas.
+                ev_fig.add_trace(go.Scatter(x=xs, y=consumed_y, mode="lines",
+                                            line=dict(width=0), hoverinfo="skip",
+                                            showlegend=False))
+                ev_fig.add_trace(go.Scatter(x=xs, y=up, mode="lines", line=dict(width=0),
+                                            fill="tonexty", fillcolor="rgba(46,204,113,0.35)",
+                                            hoverinfo="skip", showlegend=False))
+                # Rojo entre min(.) y consumidas: solo donde consumidas > quemadas.
+                ev_fig.add_trace(go.Scatter(x=xs, y=lo, mode="lines", line=dict(width=0),
+                                            hoverinfo="skip", showlegend=False))
+                ev_fig.add_trace(go.Scatter(x=xs, y=consumed_y, mode="lines",
+                                            line=dict(width=0), fill="tonexty",
+                                            fillcolor="rgba(231,76,60,0.35)",
+                                            hoverinfo="skip", showlegend=False))
+                # Líneas visibles encima.
+                _txt = [d.isoformat() for d in dates]
+                ev_fig.add_trace(go.Scatter(
+                    x=xs, y=burned_y, mode="lines+markers", name="Quemadas",
+                    line=dict(color=STRAIN_COLOR, width=2), text=_txt,
+                    hovertemplate="%{text}<br>Quemadas=%{y:.0f} kcal<extra></extra>"))
+                ev_fig.add_trace(go.Scatter(
+                    x=xs, y=consumed_y, mode="lines+markers", name="Consumidas",
+                    line=dict(color=AMBER, width=2), text=_txt,
+                    hovertemplate="%{text}<br>Consumidas=%{y:.0f} kcal<extra></extra>"))
+                # Huecos: vertical punteada entre días no consecutivos.
+                for i in range(len(dates) - 1):
+                    if (dates[i + 1] - dates[i]).days > 1:
+                        ev_fig.add_vline(x=i + 0.5, line=dict(
+                            color="rgba(150,150,150,0.6)", width=1, dash="dot"))
+                ev_fig.update_layout(
+                    height=340, margin=dict(l=10, r=10, t=34, b=60),
+                    title={"text": "Evolución: quemadas vs consumidas", "x": 0.5,
+                           "xanchor": "center"},
+                    yaxis_title="kcal", paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)", font=dict(color=_fg()),
+                    legend=dict(orientation="h", y=1.14, x=0.5, xanchor="center"))
+                ev_fig.update_xaxes(tickmode="array", tickvals=xs,
+                                    ticktext=[d.strftime("%d/%m") for d in dates],
+                                    tickangle=-45, tickfont=dict(size=10))
+                ev_fig.update_yaxes(automargin=True)
+                st.plotly_chart(ev_fig, width="stretch", theme=None)
+                st.caption("🟢 área verde = quemas más (déficit) · 🔴 roja = comes más. "
+                           "Las verticales punteadas marcan huecos de días sin datos.")
+
     # Comidas guardadas: la "base de datos" de comidas recurrentes.
     with cal_db:
         st.caption("Comidas que repites a menudo. Guárdalas aquí y añádelas con un clic "
