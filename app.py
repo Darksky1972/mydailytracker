@@ -217,13 +217,19 @@ def calorie_calendar_html(year, month, diffs, today):
                 cells += "<td></td>"
                 continue
             the_date = date(year, month, d)
-            style = (f"text-align:center;padding:5px 0;font-size:12px;color:{fg};"
-                     "border-radius:6px;")
+            style = f"text-align:center;font-size:12px;color:{fg};border-radius:6px;"
             if the_date in diffs:
                 style += f"background:{_cal_diff_color(diffs[the_date])};font-weight:700;"
             if the_date == today:
                 style += "outline:2px solid rgba(52,152,219,0.7);"
-            cells += f"<td style='{style}'>{d}</td>"
+            # Días pasados/hoy = enlace que salta a ese día en la pestaña Registrar.
+            if the_date <= today:
+                inner = (f"<a href='?meal_day={the_date.isoformat()}' target='_self' "
+                         f"title='Editar comidas de este día' style='color:inherit;"
+                         f"text-decoration:none;display:block;padding:5px 0;'>{d}</a>")
+            else:
+                inner = f"<div style='padding:5px 0;'>{d}</div>"
+            cells += f"<td style='{style}'>{inner}</td>"
         rows += f"<tr>{cells}</tr>"
     return (f"<table style='width:100%;table-layout:fixed;border-collapse:collapse;'>"
             f"<thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>")
@@ -515,6 +521,19 @@ with manana_col:
 
 # --- Calorías / nutrición --------------------------------------------------
 st.markdown("### 🍽️ Calorías")
+# Si vienes de pinchar un día en el calendario de balance (?meal_day=AAAA-MM-DD),
+# salta a ese día en la pestaña Registrar y limpia el parámetro de la URL.
+_qd = st.query_params.get("meal_day")
+if _qd:
+    try:
+        st.session_state.meal_day_offset = min(
+            0, (date.fromisoformat(_qd) - date.today()).days)
+    except ValueError:
+        pass
+    try:
+        del st.query_params["meal_day"]
+    except KeyError:
+        pass
 # Balance por día (quemadas − consumidas) para colorear el calendario de la dcha.
 # cal_rows guarda (fecha, quemadas, consumidas) SOLO de días con ambos datos, para
 # poder calcular medias del último mes ignorando los días faltantes.
@@ -705,7 +724,8 @@ with cal_cal:
     st.markdown(calorie_calendar_html(_cy, _cm, cal_diffs, date.today()),
                 unsafe_allow_html=True)
     st.caption("🟢 déficit > 200 · 🟡 entre −200 y 200 · 🔴 superávit > 200 kcal. "
-               "Solo se colorean los días con comidas y dato de Whoop.")
+               "Solo se colorean los días con comidas y dato de Whoop. "
+               "Pincha un día para editar sus comidas.")
 
     # Medias: último mes y global (solo días con comidas y dato de Whoop).
     _recent = [(b, c) for (do, b, c) in cal_rows
