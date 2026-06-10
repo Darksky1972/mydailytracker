@@ -17,7 +17,7 @@ import db
 import whoop_api
 import whoop_import
 
-st.set_page_config(page_title="Señal", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Daily Tracker", page_icon="📡", layout="wide")
 
 # --- bootstrap: schema + first-run data ------------------------------------
 # The SQLite DB (senal.db) persists across restarts and code changes. On a fresh
@@ -334,7 +334,7 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 # HOY
 # ---------------------------------------------------------------------------
-st.title("📡 Señal")
+st.title("📡 Daily Tracker")
 st.caption("Registra tus hábitos y biometría, y explora qué mueve de verdad tu recovery.")
 
 st.header("Hoy")
