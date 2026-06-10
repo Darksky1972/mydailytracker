@@ -723,6 +723,16 @@ with cal_main:
                     if (dates[i + 1] - dates[i]).days > 1:
                         ev_fig.add_vline(x=i + 0.5, line=dict(
                             color="rgba(150,150,150,0.6)", width=1, dash="dot"))
+                # Línea horizontal: punto medio entre las medias globales de quemadas
+                # y consumidas (sobre TODO el histórico con ambos datos).
+                _gb = sum(b for _, b, _ in cal_rows) / len(cal_rows)
+                _gc = sum(c for _, _, c in cal_rows) / len(cal_rows)
+                _mid = (_gb + _gc) / 2
+                ev_fig.add_hline(
+                    y=_mid, line=dict(color="rgba(150,150,150,0.9)", width=1.5, dash="dash"),
+                    annotation_text=f"Media global {_mid:.0f} kcal",
+                    annotation_position="top left",
+                    annotation_font=dict(color=_fg(), size=11))
                 ev_fig.update_layout(
                     height=360, margin=dict(l=10, r=10, t=80, b=60),
                     title={"text": "Evolución: quemadas vs consumidas", "x": 0.5,
@@ -737,7 +747,9 @@ with cal_main:
                 ev_fig.update_yaxes(automargin=True)
                 st.plotly_chart(ev_fig, width="stretch", theme=None)
                 st.caption("🟢 área verde = quemas más (déficit) · 🔴 roja = comes más. "
-                           "Las verticales punteadas marcan huecos de días sin datos.")
+                           "Las verticales punteadas marcan huecos de días sin datos. "
+                           "La línea gris discontinua es el punto medio entre las medias "
+                           "globales de quemadas y consumidas.")
 
     # Comidas guardadas: la "base de datos" de comidas recurrentes.
     with cal_db:
