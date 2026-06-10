@@ -671,7 +671,8 @@ with cal_main:
             # Evolución: quemadas vs consumidas (solo días con ambos datos). El área
             # entre las líneas se pinta verde si quemas más y rojo si comes más; los
             # días sin datos se saltan y los huecos se marcan con una vertical.
-            ev = sorted(cal_rows)[-30:]
+            ev = [r for r in sorted(cal_rows)
+                  if r[0] >= date.today() - timedelta(days=30)]
             if len(ev) >= 2:
                 dates = [d for d, _, _ in ev]
                 xs = list(range(len(ev)))
