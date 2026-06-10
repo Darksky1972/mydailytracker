@@ -698,11 +698,11 @@ with cal_main:
                 _txt = [d.isoformat() for d in dates]
                 ev_fig.add_trace(go.Scatter(
                     x=xs, y=burned_y, mode="lines+markers", name="Quemadas",
-                    line=dict(color=STRAIN_COLOR, width=2), text=_txt,
+                    line=dict(color="#6c5ce7", width=2.5), text=_txt,   # índigo: resalta sobre el verde
                     hovertemplate="%{text}<br>Quemadas=%{y:.0f} kcal<extra></extra>"))
                 ev_fig.add_trace(go.Scatter(
                     x=xs, y=consumed_y, mode="lines+markers", name="Consumidas",
-                    line=dict(color=AMBER, width=2), text=_txt,
+                    line=dict(color=AMBER, width=2.5), text=_txt,
                     hovertemplate="%{text}<br>Consumidas=%{y:.0f} kcal<extra></extra>"))
                 # Huecos: vertical punteada entre días no consecutivos.
                 for i in range(len(dates) - 1):
@@ -710,12 +710,13 @@ with cal_main:
                         ev_fig.add_vline(x=i + 0.5, line=dict(
                             color="rgba(150,150,150,0.6)", width=1, dash="dot"))
                 ev_fig.update_layout(
-                    height=340, margin=dict(l=10, r=10, t=34, b=60),
+                    height=360, margin=dict(l=10, r=10, t=80, b=60),
                     title={"text": "Evolución: quemadas vs consumidas", "x": 0.5,
-                           "xanchor": "center"},
+                           "xanchor": "center", "y": 0.97, "yanchor": "top"},
                     yaxis_title="kcal", paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)", font=dict(color=_fg()),
-                    legend=dict(orientation="h", y=1.14, x=0.5, xanchor="center"))
+                    legend=dict(orientation="h", y=1.04, x=0.5, xanchor="center",
+                                yanchor="bottom"))
                 ev_fig.update_xaxes(tickmode="array", tickvals=xs,
                                     ticktext=[d.strftime("%d/%m") for d in dates],
                                     tickangle=-45, tickfont=dict(size=10))
