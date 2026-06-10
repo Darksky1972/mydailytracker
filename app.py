@@ -677,20 +677,34 @@ with cal_main:
                 xs = list(range(len(ev)))
                 burned_y = [b for _, b, _ in ev]
                 consumed_y = [c for _, _, c in ev]
-                up = [max(b, c) for b, c in zip(burned_y, consumed_y)]   # techo (verde)
-                lo = [min(b, c) for b, c in zip(burned_y, consumed_y)]   # suelo (rojo)
+                # Para que el relleno NO se salga en los cruces, insertamos el punto
+                # exacto de cruce (x fraccionario, donde ambas líneas valen lo mismo)
+                # en las series que definen el área. Así, en cada tramo una línea
+                # está siempre por encima y el max/min coincide con las líneas.
+                ax, ab, ac = [], [], []
+                for i in range(len(xs)):
+                    ax.append(xs[i]); ab.append(burned_y[i]); ac.append(consumed_y[i])
+                    if i < len(xs) - 1:
+                        d0 = burned_y[i] - consumed_y[i]
+                        d1 = burned_y[i + 1] - consumed_y[i + 1]
+                        if d0 * d1 < 0:                      # se cruzan dentro del tramo
+                            t = d0 / (d0 - d1)
+                            yc = burned_y[i] + t * (burned_y[i + 1] - burned_y[i])
+                            ax.append(xs[i] + t); ab.append(yc); ac.append(yc)
+                up = [max(b, c) for b, c in zip(ab, ac)]    # techo (verde)
+                lo = [min(b, c) for b, c in zip(ab, ac)]    # suelo (rojo)
                 ev_fig = go.Figure()
                 # Verde entre consumidas y max(.): solo donde quemadas > consumidas.
-                ev_fig.add_trace(go.Scatter(x=xs, y=consumed_y, mode="lines",
+                ev_fig.add_trace(go.Scatter(x=ax, y=ac, mode="lines",
                                             line=dict(width=0), hoverinfo="skip",
                                             showlegend=False))
-                ev_fig.add_trace(go.Scatter(x=xs, y=up, mode="lines", line=dict(width=0),
+                ev_fig.add_trace(go.Scatter(x=ax, y=up, mode="lines", line=dict(width=0),
                                             fill="tonexty", fillcolor="rgba(46,204,113,0.35)",
                                             hoverinfo="skip", showlegend=False))
                 # Rojo entre min(.) y consumidas: solo donde consumidas > quemadas.
-                ev_fig.add_trace(go.Scatter(x=xs, y=lo, mode="lines", line=dict(width=0),
+                ev_fig.add_trace(go.Scatter(x=ax, y=lo, mode="lines", line=dict(width=0),
                                             hoverinfo="skip", showlegend=False))
-                ev_fig.add_trace(go.Scatter(x=xs, y=consumed_y, mode="lines",
+                ev_fig.add_trace(go.Scatter(x=ax, y=ac, mode="lines",
                                             line=dict(width=0), fill="tonexty",
                                             fillcolor="rgba(231,76,60,0.35)",
                                             hoverinfo="skip", showlegend=False))
