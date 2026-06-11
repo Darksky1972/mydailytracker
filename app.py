@@ -264,7 +264,7 @@ LABELS_EN = {
     "journaling": "Journaling",
     "leer": "Read in bed",
     "fap": "Fap",
-    "beber_agua": "Drink water (min 3 bottles)",
+    "beber_agua": "Drink water",
     "cafeina": "Caffeine",
     "alcohol": "Alcohol",
     "comer_restaurante": "Eat at a restaurant",

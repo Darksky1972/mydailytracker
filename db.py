@@ -77,7 +77,7 @@ LABELS = {
     "journaling": "Journaling",
     "leer": "Leer en cama",
     "fap": "Fap",
-    "beber_agua": "Beber agua (min 3 botellas)",
+    "beber_agua": "Beber agua",
     "cafeina": "Cafeína",
     "alcohol": "Alcohol",
     "comer_restaurante": "Comer en restaurante",
