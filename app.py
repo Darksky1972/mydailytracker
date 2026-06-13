@@ -95,6 +95,7 @@ _EN = {
     "Cambia a «Ayer» si se te pasó registrar algún hábito.":
         "Switch to “Yesterday” if you forgot to log a habit.",
     "Hábitos": "Habits",
+    "Márcalo si NO has hecho «Fap» ese día.": "Check it if you did NOT “Fap” that day.",
     "➕ Mostrar más": "➕ Show more",
     "Minutos de pantalla de ESA noche. Si se te pasó, "
     "cambia a «Ayer» y ponlo en el día que toca.":
@@ -239,6 +240,8 @@ _EN = {
         "strong by pure chance. It does not imply causation. "
         "(Red = negative, blue = positive.)",
     "Mostrar todas las variables": "Show all variables",
+    "No hay variables con suficientes datos (≥30 días emparejados) para la matriz.":
+        "No variables with enough data (≥30 paired days) for the matrix.",
     "Por defecto se ocultan Siesta, Horas de sueño, Rendimiento sueño, "
     "Frec. respiratoria, Temp. piel y SpO₂ para que la matriz sea más legible. "
     "Actívalo para verlas todas.":
@@ -656,7 +659,9 @@ with log_col:
                               key=f"hb_journ_{_k}")
         h2 = st.columns(3)
         leer = h2[0].checkbox(label("leer"), bool(hday.get("leer")), key=f"hb_leer_{_k}")
-        fap = h2[1].checkbox(label("fap"), bool(hday.get("fap")), key=f"hb_fap_{_k}")
+        # Casilla inversa: marcada = NoFap (no has hecho «Fap» ese día).
+        nofap = h2[1].checkbox("NoFap", not bool(hday.get("fap")), key=f"hb_nofap_{_k}",
+                               help=T("Márcalo si NO has hecho «Fap» ese día."))
         agua = h2[2].checkbox(label("beber_agua"), bool(hday.get("beber_agua")),
                               key=f"hb_agua_{_k}")
 
@@ -722,7 +727,7 @@ if saved:
         "estiramientos": int(estir),
         "journaling": int(journ),
         "leer": int(leer),
-        "fap": int(fap),
+        "fap": int(not nofap),   # NoFap marcado → fap = 0
         "beber_agua": int(agua),
         "cafeina": int(cafeina),
         "alcohol": int(alcohol),
@@ -1263,36 +1268,46 @@ if not show_all_matrix:
     keep_cols = [c for c in r_mat.columns if c not in HIDDEN_MATRIX_VARS]
     r_mat = r_mat.loc[keep_rows, keep_cols]
     n_mat = n_mat.loc[keep_rows, keep_cols]
-z = r_mat.values.astype(float)
+# Oculta variables con pocos datos: si en TODA su fila/columna no se alcanzan 30
+# días emparejados, sus correlaciones serían puro ruido, así que no se muestran.
+keep_rows = [i for i in r_mat.index if n_mat.loc[i].max() >= 30]
+keep_cols = [c for c in r_mat.columns if n_mat[c].max() >= 30]
+r_mat = r_mat.loc[keep_rows, keep_cols]
+n_mat = n_mat.loc[keep_rows, keep_cols]
 
-# Theme-aware palette so the matrix blends in light AND dark mode: in dark mode
-# r≈0 maps to a dark tone instead of RdBu's white (which would clash).
-colorscale = ([[0.0, "#c0392b"], [0.5, "#23232b"], [1.0, "#2e86de"]]
-              if _is_dark() else "RdBu")
-fg = _fg()
+if r_mat.empty:
+    st.info(T("No hay variables con suficientes datos (≥30 días emparejados) para la matriz."))
+else:
+    z = r_mat.values.astype(float)
 
-heat = go.Figure(go.Heatmap(
-    z=z,
-    x=[label(c) for c in r_mat.columns],
-    y=[label(i) for i in r_mat.index],
-    zmin=-1, zmax=1, colorscale=colorscale,
-    text=[[("" if np.isnan(v) else f"{v:.2f}") for v in row] for row in z],
-    texttemplate="%{text}",
-    textfont=dict(color=fg),
-    customdata=n_mat.values.astype(int),
-    hovertemplate="r=%{z:.2f}<br>n=%{customdata} " + T("días") + "<extra></extra>",
-    colorbar=dict(title="r"),
-))
-heat.update_layout(
-    height=430, margin=dict(l=10, r=10, t=30, b=10),
-    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(color=fg),
-)
-# automargin so the long row/column labels get room (theme=None disables the
-# automatic margins Streamlit's theme used to add), tickfont so they stay visible.
-heat.update_xaxes(side="top", automargin=True, tickfont=dict(color=fg))
-heat.update_yaxes(automargin=True, tickfont=dict(color=fg))
-st.plotly_chart(heat, width="stretch", theme=None)
+    # Theme-aware palette so the matrix blends in light AND dark mode: in dark mode
+    # r≈0 maps to a dark tone instead of RdBu's white (which would clash).
+    colorscale = ([[0.0, "#c0392b"], [0.5, "#23232b"], [1.0, "#2e86de"]]
+                  if _is_dark() else "RdBu")
+    fg = _fg()
 
-st.caption(T("Pista: prueba X = «Hora de dormir», Y = «Recovery». Con el lag activado "
-             "debería aparecer una relación; al desactivarlo, desaparece."))
+    heat = go.Figure(go.Heatmap(
+        z=z,
+        x=[label(c) for c in r_mat.columns],
+        y=[label(i) for i in r_mat.index],
+        zmin=-1, zmax=1, colorscale=colorscale,
+        text=[[("" if np.isnan(v) else f"{v:.2f}") for v in row] for row in z],
+        texttemplate="%{text}",
+        textfont=dict(color=fg),
+        customdata=n_mat.values.astype(int),
+        hovertemplate="r=%{z:.2f}<br>n=%{customdata} " + T("días") + "<extra></extra>",
+        colorbar=dict(title="r"),
+    ))
+    heat.update_layout(
+        height=430, margin=dict(l=10, r=10, t=30, b=10),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=fg),
+    )
+    # automargin so the long row/column labels get room (theme=None disables the
+    # automatic margins Streamlit's theme used to add), tickfont so they stay visible.
+    heat.update_xaxes(side="top", automargin=True, tickfont=dict(color=fg))
+    heat.update_yaxes(automargin=True, tickfont=dict(color=fg))
+    st.plotly_chart(heat, width="stretch", theme=None)
+
+    st.caption(T("Pista: prueba X = «Hora de dormir», Y = «Recovery». Con el lag activado "
+                 "debería aparecer una relación; al desactivarlo, desaparece."))
