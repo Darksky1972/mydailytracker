@@ -109,7 +109,7 @@ _EN = {
     # NoFap
     "Mes anterior": "Previous month",
     "Mes siguiente": "Next month",
-    "Días tachados = NoFap. En": "Crossed-out days = NoFap. In",
+    "🟢 NoFap · 🔴 Fap. En {m}: {n} NoFap.": "🟢 NoFap · 🔴 Fap. In {m}: {n} NoFap.",
     # tareas
     "Tareas de hoy": "Today's tasks",
     "Prioridad": "Priority",
@@ -413,11 +413,13 @@ _WEEKDAYS_ES = ["L", "M", "X", "J", "V", "S", "D"]
 _WEEKDAYS_EN = ["M", "T", "W", "T", "F", "S", "S"]
 _MONTHS = _MONTHS_EN if LANG == "en" else _MONTHS_ES
 _WEEKDAYS = _WEEKDAYS_EN if LANG == "en" else _WEEKDAYS_ES
-_NOFAP_CROSS = "#2ecc71"   # color de la ✗ de NoFap (verde = día logrado)
+_NOFAP_GREEN = "rgba(46,204,113,0.55)"   # día de NoFap logrado (fap == 0)
+_NOFAP_RED = "rgba(231,76,60,0.55)"      # día con Fap (fap == 1)
 
 
-def nofap_calendar_html(year, month, nofap_dates, today):
-    """Mini-calendario HTML del mes: marca con ✗ los días de NoFap (fap == 0).
+def nofap_calendar_html(year, month, nofap_dates, fap_dates, today):
+    """Mini-calendario HTML del mes: rellena en VERDE los días de NoFap (fap == 0)
+    y en ROJO los de Fap (fap == 1). Los días sin dato quedan sin color.
 
     Usa table-layout:fixed + ancho 1/7 por columna para que las 7 columnas sean
     idénticas en todos los meses (en modo auto se ajustarían al contenido).
@@ -436,18 +438,13 @@ def nofap_calendar_html(year, month, nofap_dates, today):
             the_date = date(year, month, d)
             style = (f"text-align:center;padding:5px 0;font-size:12px;color:{fg};"
                      "border-radius:6px;")
-            if the_date == today:
-                style += "background:rgba(52,152,219,0.18);font-weight:700;"
             if the_date in nofap_dates:
-                # número atenuado con una ✗ verde superpuesta encima.
-                num = (f"<span style='position:relative;display:inline-block;"
-                       f"min-width:16px;'><span style='opacity:.4;'>{d}</span>"
-                       f"<span style='position:absolute;left:0;right:0;top:50%;"
-                       f"transform:translateY(-50%);color:{_NOFAP_CROSS};"
-                       f"font-weight:700;font-size:16px;'>✗</span></span>")
-            else:
-                num = str(d)
-            cells += f"<td style='{style}'>{num}</td>"
+                style += f"background:{_NOFAP_GREEN};font-weight:700;"
+            elif the_date in fap_dates:
+                style += f"background:{_NOFAP_RED};font-weight:700;"
+            if the_date == today:
+                style += "outline:2px solid rgba(52,152,219,0.7);"   # marca hoy
+            cells += f"<td style='{style}'>{d}</td>"
         rows += f"<tr>{cells}</tr>"
     return (f"<table style='width:100%;table-layout:fixed;border-collapse:collapse;'>"
             f"<thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>")
@@ -694,9 +691,10 @@ with log_col:
 with cal_col:
     # Espacio arriba para que el calendario baje y quede a la altura del formulario.
     st.markdown("<div style='height:6rem'></div>", unsafe_allow_html=True)
-    _nofap = set()
+    _nofap, _fap = set(), set()
     if not df.empty and "fap" in df.columns:
         _nofap = set(pd.to_datetime(df.loc[df["fap"] == 0, "date"]).dt.date)
+        _fap = set(pd.to_datetime(df.loc[df["fap"] == 1, "date"]).dt.date)
 
     # Mes mostrado = mes actual + offset (≤ 0; no se permite ir al futuro).
     _off = st.session_state.get("nofap_offset", 0)
@@ -716,10 +714,11 @@ with cal_col:
         st.session_state.nofap_offset = _off + 1
         st.rerun()
 
-    st.markdown(nofap_calendar_html(_y, _m, _nofap, date.today()),
+    st.markdown(nofap_calendar_html(_y, _m, _nofap, _fap, date.today()),
                 unsafe_allow_html=True)
     _n_month = sum(1 for x in _nofap if x.year == _y and x.month == _m)
-    st.caption(f"{T('Días tachados = NoFap. En')} {_MONTHS[_m - 1]}: {_n_month}.")
+    st.caption(T("🟢 NoFap · 🔴 Fap. En {m}: {n} NoFap.")
+               .format(m=_MONTHS[_m - 1], n=_n_month))
 
 if saved:
     db.upsert_day(habit_date, {
