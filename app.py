@@ -47,6 +47,12 @@ _EN = {
     "Datos": "Data",
     "Días registrados": "Days recorded",
     "🗑️ Borrar todo": "🗑️ Delete everything",
+    "¿Seguro? Esto borra días, tareas, actividades y comidas "
+    "(las comidas guardadas se conservan). No se puede deshacer.":
+        "Are you sure? This deletes days, tasks, activities and meals "
+        "(saved meals are kept). It can't be undone.",
+    "Sí, borrar": "Yes, delete",
+    "Cancelar": "Cancel",
     "Aún sin configurar. Pon tus credenciales en "
     "`.streamlit/secrets.toml` (sección `[whoop]`) para conectar.":
         "Not set up yet. Put your credentials in "
@@ -508,8 +514,18 @@ with st.sidebar:
     st.header(T("Datos"))
     st.metric(T("Días registrados"), db.count_days())
     if st.button(T("🗑️ Borrar todo"), width="stretch"):
-        db.clear_all()
-        st.rerun()
+        st.session_state.confirm_clear = True
+    if st.session_state.get("confirm_clear"):
+        st.warning(T("¿Seguro? Esto borra días, tareas, actividades y comidas "
+                     "(las comidas guardadas se conservan). No se puede deshacer."))
+        cc1, cc2 = st.columns(2)
+        if cc1.button(T("Sí, borrar"), key="confirm_clear_yes", width="stretch"):
+            db.clear_all()
+            st.session_state.confirm_clear = False
+            st.rerun()
+        if cc2.button(T("Cancelar"), key="confirm_clear_no", width="stretch"):
+            st.session_state.confirm_clear = False
+            st.rerun()
 
     # --- Whoop API (conectar + sincronizar) ---
     st.divider()
@@ -673,11 +689,11 @@ with log_col:
                                         key=f"hb_rest_{_k}")
 
         n1, n2, n3 = st.columns(3)
-        japones = n1.slider(label("japones_min"), 0, 120,
-                            min(int(default(hday, "japones_min", 0)), 120),
+        japones = n1.slider(label("japones_min"), 0, 60,
+                            min(int(default(hday, "japones_min", 0)), 60),
                             key=f"hb_jap_{_k}")
-        pantalla = n2.slider(label("pantalla_noche_min"), 0, 120,
-                             min(int(default(hday, "pantalla_noche_min", 0)), 120),
+        pantalla = n2.slider(label("pantalla_noche_min"), 0, 60,
+                             min(int(default(hday, "pantalla_noche_min", 0)), 60),
                              key=f"hb_pan_{_k}",
                              help=T("Minutos de pantalla de ESA noche. Si se te pasó, "
                                     "cambia a «Ayer» y ponlo en el día que toca."))

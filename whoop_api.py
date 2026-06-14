@@ -1,4 +1,4 @@
-"""Cliente de la API de Whoop (v2) para Señal — Fase 1: OAuth + descarga.
+"""Cliente de la API de Whoop (v2) para Señal: OAuth + descarga + volcado a la BD.
 
 Single-user: autorizas UNA vez (flujo en la propia web) para obtener un refresh
 token, que se guarda en la tabla `meta` de la BD. Después se renueva el access
@@ -6,8 +6,10 @@ token bajo demanda. Whoop ROTA el refresh token, así que guardamos el nuevo cad
 vez. Las credenciales (client_id/secret/redirect_uri) viven en
 `.streamlit/secrets.toml` (fuera de git) y se pasan desde app.py.
 
-El mapeo a los campos de Señal y el volcado a la BD se añadirán (Fase 2) cuando
-verifiquemos la estructura real de las respuestas con "Probar conexión".
+`_build` mapea las respuestas de /cycle, /recovery, /activity/sleep y
+/activity/workout al modelo de un registro por día (misma alineación de fechas
+que el import de CSV), y `sync` lo vuelca a la BD fusionando sin borrar el
+histórico ni los campos manuales.
 """
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -206,8 +208,7 @@ def _build(data):
                 by_date[onset.date().isoformat()]["siesta"] = 1
 
     agg = defaultdict(lambda: {"min": 0.0, "cal": 0.0, "hr_sum": 0.0, "max": 0.0,
-                               "z": [0.0] * 5, "acts": [], "count": 0,
-                               "morning": False})
+                               "z": [0.0] * 5, "acts": [], "count": 0})
     workout_rows = []
     for w in data.get("workouts", []):
         off = w.get("timezone_offset")
@@ -230,7 +231,6 @@ def _build(data):
         a["hr_sum"] += avg * dur
         a["max"] = max(a["max"], _num(sc.get("max_heart_rate")) or 0.0)
         a["count"] += 1
-        a["morning"] = a["morning"] or ws.hour < 12
         for i in range(5):
             a["z"][i] += zmin[i]
         if name and name not in a["acts"]:
@@ -249,7 +249,7 @@ def _build(data):
         r["workout_avg_hr"] = round(a["hr_sum"] / a["min"]) if a["min"] else None
         r["workout_max_hr"] = a["max"] or None
         r["workout_count"] = a["count"]
-        r["entreno_manana"] = int(a["morning"])
+        # entreno_manana es MANUAL (casilla de Hábitos); el import/sync no lo toca.
         r["activities"] = ", ".join(a["acts"])
         for i in range(5):
             r[f"hr_zone{i+1}_min"] = round(a["z"][i], 1)

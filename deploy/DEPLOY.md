@@ -20,8 +20,8 @@ Si usas esta ruta, los pasos quedan así:
 3. En esa terminal: `mkdir -p /opt/senal` y luego **File → Open Folder →
    `/opt/senal`**.
 4. **Arrastra** desde el Explorador de Windows a la lista de archivos de VS Code:
-   `app.py`, `db.py`, `analysis.py`, `seed.py`, `whoop_import.py`,
-   `requirements.txt`, `senal.db`, y las carpetas `data` y `deploy`.
+   `app.py`, `db.py`, `analysis.py`, `whoop_api.py`, `whoop_import.py`,
+   `mcp_server.py`, `requirements.txt`, `senal.db`, y las carpetas `data` y `deploy`.
    (NO subas `.venv`.)
 5. En la terminal de VS Code:
    `cd /opt/senal && bash deploy/setup_vps.sh senal.tudominio.com mi_usuario`
@@ -102,7 +102,7 @@ ssh root@IP_DE_TU_VPS "mkdir -p /opt/senal"
 
 Ahora copia el código y tus datos (dos comandos; la contraseña te la pedirá otra vez):
 ```powershell
-scp "$base\app.py" "$base\db.py" "$base\analysis.py" "$base\seed.py" "$base\whoop_import.py" "$base\requirements.txt" "$base\senal.db" root@IP_DE_TU_VPS:/opt/senal/
+scp "$base\app.py" "$base\db.py" "$base\analysis.py" "$base\whoop_api.py" "$base\whoop_import.py" "$base\mcp_server.py" "$base\requirements.txt" "$base\senal.db" root@IP_DE_TU_VPS:/opt/senal/
 ```
 ```powershell
 scp -r "$base\data" "$base\deploy" root@IP_DE_TU_VPS:/opt/senal/

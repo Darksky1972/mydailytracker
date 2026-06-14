@@ -114,7 +114,7 @@ def import_whoop(physio=None, journal=None, workouts=None, sleeps=None, wipe=Tru
     if workouts is not None:
         agg = defaultdict(lambda: {"min": 0.0, "cal": 0.0, "hr_sum": 0.0,
                                    "max": 0.0, "z": [0.0] * 5, "acts": [],
-                                   "count": 0, "morning": False})
+                                   "count": 0})
         for _, r in pd.read_csv(workouts).iterrows():
             ws = _dt(r.get("Workout start time"))
             if pd.isna(ws):
@@ -130,7 +130,6 @@ def import_whoop(physio=None, journal=None, workouts=None, sleeps=None, wipe=Tru
             a["hr_sum"] += avg * dur
             a["max"] = max(a["max"], _num(r.get("Max HR (bpm)")) or 0.0)
             a["count"] += 1
-            a["morning"] = a["morning"] or ws.hour < 12
             for i in range(5):
                 a["z"][i] += zmin[i]
             name = str(r.get("Activity name", "")).strip()
@@ -150,7 +149,7 @@ def import_whoop(physio=None, journal=None, workouts=None, sleeps=None, wipe=Tru
             rec["workout_avg_hr"] = round(a["hr_sum"] / a["min"]) if a["min"] else None
             rec["workout_max_hr"] = a["max"] or None
             rec["workout_count"] = a["count"]
-            rec["entreno_manana"] = int(a["morning"])
+            # entreno_manana es MANUAL (casilla de Hábitos); el import no lo toca.
             rec["activities"] = ", ".join(a["acts"])
             for i in range(5):
                 rec[f"hr_zone{i+1}_min"] = round(a["z"][i], 1)
@@ -168,15 +167,17 @@ def import_whoop(physio=None, journal=None, workouts=None, sleeps=None, wipe=Tru
     # Preserve manual-only data across re-imports. We only wipe `days` the FIRST
     # time we move off synthetic data; afterwards we MERGE (upsert), so columns
     # the import never touches — japones_min, pantalla_noche_min, tareas_pct and
-    # the tasks table — survive. Workouts are 100% Whoop-derived, so we clear and
-    # rebuild them (when a workouts file is given) to avoid duplicates.
+    # the tasks table — survive.
     if wipe:
         if db.get_meta("data_source") != "whoop":
             db.clear_days()
-        if workouts is not None:
-            db.clear_workouts()
         db.set_meta("seeded", "1")
         db.set_meta("data_source", "whoop")
+    # Workouts: reescribe SOLO las fechas presentes en este import (evita duplicados
+    # sin borrar el resto del historial). Antes hacía clear_workouts() y una
+    # reimportación parcial perdía todas las actividades viejas.
+    for d in {w["date"] for w in workout_rows}:
+        db.delete_workouts_on(d)
     for d, rec in by_date.items():
         db.upsert_day(d, rec)
     for w in workout_rows:
