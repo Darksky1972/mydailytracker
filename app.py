@@ -166,6 +166,9 @@ _EN = {
     "Día": "Day", "Quemadas (Whoop)": "Burned (Whoop)",
     "Diferencia = quemadas − consumidas. Positivo = déficit calórico.":
         "Difference = burned − consumed. Positive = calorie deficit.",
+    "⬇️ Descargar CSV": "⬇️ Download CSV",
+    "Descarga todas tus comidas (una fila por comida) en un CSV.":
+        "Download all your meals (one row per meal) as a CSV.",
     "Evolución: quemadas vs consumidas": "Trend: burned vs consumed",
     "Media global": "All-time average",
     "🟢 área verde = quemas más (déficit) · 🔴 roja = comes más. "
@@ -647,7 +650,7 @@ g[2].plotly_chart(ring(yday.get("strain"), T("Strain (ayer)"), 0, 21, STRAIN_COL
 g[3].plotly_chart(ring(day.get("rhr"), "RHR (ppm)", 100, 50,
                        _band_color(day.get("rhr"), 65, 75, higher_better=False)), width="stretch")
 g[4].plotly_chart(ring(day.get("sleep_hours"), T("Sueño (h)"), 0, 9,
-                       _band_color(day.get("sleep_hours"), 7.5, 6.5), decimals=1), width="stretch")
+                       _band_color(day.get("sleep_hours"), 7.4, 6.5), decimals=1), width="stretch")
 
 # --- habit logger (izq.) + calendario NoFap (dcha.) ---
 log_col, cal_col = st.columns([0.62, 0.38])
@@ -976,6 +979,23 @@ with cal_main:
                 })
             st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
             st.caption(T("Diferencia = quemadas − consumidas. Positivo = déficit calórico."))
+
+            # Exportar: CSV con TODAS las comidas registradas (una fila por comida)
+            # para llevarte los datos a otro sitio (Excel, otra app…).
+            _exp = pd.DataFrame([{
+                T("Día"): m["date"],
+                T("Tipo de comida"): meal_label(m["meal_type"]) if m.get("meal_type") else "",
+                T("Comida"): m["name"],
+                "kcal": m["kcal"],
+                T("Prot (g)"): m["protein"],
+                "Carbs (g)": m["carbs"],
+                T("Grasa (g)"): m["fat"],
+            } for m in db.all_meals()])
+            st.download_button(
+                T("⬇️ Descargar CSV"),
+                _exp.to_csv(index=False).encode("utf-8-sig"),
+                file_name="calorias.csv", mime="text/csv", width="stretch",
+                help=T("Descarga todas tus comidas (una fila por comida) en un CSV."))
 
             # Evolución: quemadas vs consumidas (solo días con ambos datos). El área
             # entre las líneas se pinta verde si quemas más y rojo si comes más; los

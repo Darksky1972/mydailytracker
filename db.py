@@ -378,6 +378,15 @@ def meals_by_day():
     return {r["date"]: dict(r) for r in rows}
 
 
+def all_meals():
+    """Todas las comidas registradas (una fila por comida), para exportar."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT date, meal_type, name, kcal, protein, carbs, fat "
+            "FROM meals ORDER BY date, id").fetchall()
+    return [dict(r) for r in rows]
+
+
 # --- meal presets (comidas recurrentes guardadas) --------------------------
 def get_meal_presets():
     with _conn() as conn:
