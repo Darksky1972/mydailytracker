@@ -3,7 +3,9 @@
 Run with:  streamlit run app.py
 """
 import calendar
+import io
 import secrets
+import zipfile
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -166,9 +168,11 @@ _EN = {
     "Día": "Day", "Quemadas (Whoop)": "Burned (Whoop)",
     "Diferencia = quemadas − consumidas. Positivo = déficit calórico.":
         "Difference = burned − consumed. Positive = calorie deficit.",
-    "⬇️ Descargar CSV": "⬇️ Download CSV",
-    "Descarga todas tus comidas (una fila por comida) en un CSV.":
-        "Download all your meals (one row per meal) as a CSV.",
+    "⬇️ Descargar todo (ZIP)": "⬇️ Download all (ZIP)",
+    "ZIP con 3 CSV: comidas (detalle), días (quemadas/consumidas) "
+    "y comidas guardadas.":
+        "ZIP with 3 CSVs: meals (detail), days (burned/consumed) "
+        "and saved meals.",
     "Evolución: quemadas vs consumidas": "Trend: burned vs consumed",
     "Media global": "All-time average",
     "🟢 área verde = quemas más (déficit) · 🔴 roja = comes más. "
@@ -980,9 +984,10 @@ with cal_main:
             st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
             st.caption(T("Diferencia = quemadas − consumidas. Positivo = déficit calórico."))
 
-            # Exportar: CSV con TODAS las comidas registradas (una fila por comida)
-            # para llevarte los datos a otro sitio (Excel, otra app…).
-            _exp = pd.DataFrame([{
+            # Exportar: un ZIP con 3 CSV para llevarte TODO a otro sitio (Excel, otra
+            # app…): detalle comida a comida, resumen por día (quemadas/consumidas/
+            # diferencia + macros) y tus comidas guardadas.
+            _comidas = pd.DataFrame([{
                 T("Día"): m["date"],
                 T("Tipo de comida"): meal_label(m["meal_type"]) if m.get("meal_type") else "",
                 T("Comida"): m["name"],
@@ -991,11 +996,39 @@ with cal_main:
                 "Carbs (g)": m["carbs"],
                 T("Grasa (g)"): m["fat"],
             } for m in db.all_meals()])
+            _dias = []
+            for d in sorted(_meals_by_day):
+                v = _meals_by_day[d]
+                cons = round(v["kcal"] or 0)
+                bd = (db.get_day(d) or {}).get("calories_burned")
+                bd = round(bd) if bd else None
+                _dias.append({
+                    T("Día"): d,
+                    T("Quemadas (Whoop)"): bd,
+                    T("Consumidas"): cons,
+                    T("Diferencia"): (bd - cons) if bd is not None else None,
+                    T("Prot (g)"): round(v["protein"] or 0, 1),
+                    "Carbs (g)": round(v["carbs"] or 0, 1),
+                    T("Grasa (g)"): round(v["fat"] or 0, 1),
+                })
+            _dias = pd.DataFrame(_dias)
+            _guardadas = pd.DataFrame([{
+                T("Comida"): p["name"], "kcal": p["kcal"],
+                T("Prot (g)"): p["protein"], "Carbs (g)": p["carbs"],
+                T("Grasa (g)"): p["fat"],
+            } for p in db.get_meal_presets()])
+            _buf = io.BytesIO()
+            with zipfile.ZipFile(_buf, "w", zipfile.ZIP_DEFLATED) as _zf:
+                _zf.writestr("comidas.csv", _comidas.to_csv(index=False).encode("utf-8-sig"))
+                _zf.writestr("dias.csv", _dias.to_csv(index=False).encode("utf-8-sig"))
+                _zf.writestr("comidas_guardadas.csv",
+                             _guardadas.to_csv(index=False).encode("utf-8-sig"))
             st.download_button(
-                T("⬇️ Descargar CSV"),
-                _exp.to_csv(index=False).encode("utf-8-sig"),
-                file_name="calorias.csv", mime="text/csv", width="stretch",
-                help=T("Descarga todas tus comidas (una fila por comida) en un CSV."))
+                T("⬇️ Descargar todo (ZIP)"), _buf.getvalue(),
+                file_name="tracker_calorias.zip", mime="application/zip",
+                width="stretch",
+                help=T("ZIP con 3 CSV: comidas (detalle), días (quemadas/consumidas) "
+                       "y comidas guardadas."))
 
             # Evolución: quemadas vs consumidas (solo días con ambos datos). El área
             # entre las líneas se pinta verde si quemas más y rojo si comes más; los
